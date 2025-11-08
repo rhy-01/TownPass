@@ -103,11 +103,3 @@ python fetch_restaurant_ratings.py
 3. 找到最新的資料集
 4. 複製下載連結
 5. 更新 `fetch_restaurant_ratings.py` 中的 `CSV_URL` 變數
-
-## 作者
-
-Claude
-
-## 日期
-
-2024-11-08

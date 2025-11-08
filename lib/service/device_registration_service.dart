@@ -69,6 +69,12 @@ class DeviceRegistrationService extends GetxService {
     } catch (e) {
       print('裝置註冊失敗: $e');
       // 不拋出異常，避免影響應用程式啟動
+      // 如果是網絡錯誤，可以在後台重試
+      if (e.toString().contains('SocketException') || 
+          e.toString().contains('Failed host lookup')) {
+        print('⚠️  網絡連接問題，設備註冊將在後台重試');
+        // 可以在這裡添加重試邏輯
+      }
     }
   }
 }

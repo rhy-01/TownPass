@@ -499,7 +499,6 @@ onUnmounted(() => {
 
 <style scoped>
 @import "@/styles/colors.css";
-@import "https://fonts.googleapis.com/icon?family=Material+Icons";
 
 .food-safety-page {
   min-height: 100vh;

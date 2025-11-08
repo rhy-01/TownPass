@@ -78,6 +78,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+/android/app/google-services.json
 *.g.dart
 *.gen.dart
 
@@ -141,6 +142,9 @@ foodsafety-site/dist/
 foodsafety-site/.env
 foodsafety-site/.env.local
 foodsafety-site/.env.*.local
+
+# Backend Node.js projects
+backend/**/node_modules/
 
 # Keep PDF source files but ignore processed files
 # Output files
