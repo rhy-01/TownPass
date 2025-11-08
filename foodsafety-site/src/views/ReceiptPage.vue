@@ -2,123 +2,115 @@
   <div class="receipt-page">
     <!-- AppBar -->
     <header class="app-bar">
-      <button @click="goBack" class="back-button">
+      <button
+        class="back-button"
+        @click="goBack"
+      >
         <span class="material-icons">arrow_back</span>
       </button>
-      <h1 class="app-bar-title">發票資訊</h1>
-      <div class="app-bar-spacer"></div>
+      <h1 class="app-bar-title">
+        發票資訊
+      </h1>
+      <div class="app-bar-spacer" />
     </header>
 
     <!-- Content -->
     <main class="content">
       <!-- Month Selector -->
       <div class="month-selector">
-        <button @click="prevMonth" class="month-nav-button">
+        <button
+          class="month-nav-button"
+          @click="prevMonth"
+        >
           <span class="material-icons">chevron_left</span>
         </button>
-        <h2 class="month-title">{{ currentMonthText }}</h2>
-        <button @click="nextMonth" class="month-nav-button">
+        <h2 class="month-title">
+          {{ currentMonthText }}
+        </h2>
+        <button
+          class="month-nav-button"
+          @click="nextMonth"
+        >
           <span class="material-icons">chevron_right</span>
         </button>
       </div>
 
       <!-- Receipt List -->
-      <div v-if="currentMonthReceipts.length > 0" class="receipt-list">
+      <div
+        v-if="currentMonthReceipts.length > 0"
+        class="receipt-list"
+      >
         <article
           v-for="(receipt, index) in currentMonthReceipts"
           :key="index"
           class="receipt-card"
-          :class="{ 'receipt-card--error': receipt.hasError }"
+          :class="getAuditResultClass(receipt.auditResult)"
         >
           <div class="receipt-card-content">
             <div class="receipt-header">
-              <h3 class="receipt-title">{{ receipt.storeName }}</h3>
-              <span v-if="receipt.hasError" class="receipt-error-badge">問題</span>
+              <h3 class="receipt-title">
+                {{ receipt.storeName }}
+              </h3>
+              <span
+                v-if="receipt.auditResult !== '合格'"
+                class="receipt-audit-badge"
+                :class="getAuditBadgeClass(receipt.auditResult)"
+              >
+                {{ receipt.auditResult }}
+              </span>
             </div>
             <div class="receipt-info">
-              <p class="receipt-date">{{ receipt.date }}</p>
-              <p class="receipt-amount">NT$ {{ receipt.amount }}</p>
+              <p class="receipt-date">
+                {{ receipt.date }}
+              </p>
+              <p class="receipt-seller-id">
+                統編: {{ receipt.sellerId }}
+              </p>
             </div>
-            <p v-if="receipt.description" class="receipt-description">{{ receipt.description }}</p>
           </div>
-          <span class="material-icons receipt-card-arrow">chevron_right</span>
         </article>
       </div>
-      <div v-else class="empty-state">
-        <p class="empty-state-text">此月份尚無發票資料</p>
+      <div
+        v-else
+        class="empty-state"
+      >
+        <p class="empty-state-text">
+          此月份尚無發票資料
+        </p>
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import receiptData from "@/data/receipt.json";
 
 const router = useRouter();
 
 // Current month
 const currentDate = ref(new Date());
 
-// Mock receipt data
-const receipts = ref([
-  {
-    id: 1,
-    storeName: "7-ELEVEN 信義店",
-    date: "2025-11-15",
-    amount: 150,
-    description: "購買食品",
-    hasError: false,
-  },
-  {
-    id: 2,
-    storeName: "全家便利商店 松山店",
-    date: "2025-11-12",
-    amount: 280,
-    description: "購買飲料",
-    hasError: true,
-  },
-  {
-    id: 3,
-    storeName: "全聯福利中心 信義店",
-    date: "2025-11-10",
-    amount: 1250,
-    description: "購買日用品",
-    hasError: false,
-  },
-  {
-    id: 4,
-    storeName: "家樂福 大直店",
-    date: "2025-11-05",
-    amount: 3200,
-    description: "購買生鮮食品",
-    hasError: true,
-  },
-  {
-    id: 5,
-    storeName: "麥當勞 信義店",
-    date: "2025-10-28",
-    amount: 220,
-    description: "購買餐點",
-    hasError: false,
-  },
-  {
-    id: 6,
-    storeName: "星巴克 101店",
-    date: "2025-10-25",
-    amount: 180,
-    description: "購買咖啡",
-    hasError: false,
-  },
-  {
-    id: 7,
-    storeName: "屈臣氏 信義店",
-    date: "2025-10-20",
-    amount: 450,
-    description: "購買生活用品",
-    hasError: true,
-  },
-]);
+// Receipt data from JSON
+const receipts = ref([]);
+
+// Transform receipt data from JSON format to component format
+function transformReceiptData(data) {
+  return data.map((item, index) => {
+    // Parse date from "2025-11-05-14:00" to "2025-11-05"
+    const dateStr = item["發票日期"];
+    const dateOnly = dateStr.split("-").slice(0, 3).join("-");
+    
+    return {
+      id: index + 1,
+      storeName: item["賣方名稱"],
+      sellerId: item["賣方統編"],
+      date: dateOnly,
+      auditResult: item["稽核結果"],
+    };
+  });
+}
 
 // Get current month text
 const currentMonthText = computed(() => {
@@ -139,6 +131,29 @@ const currentMonthReceipts = computed(() => {
   });
 });
 
+// Get CSS class based on audit result
+function getAuditResultClass(auditResult) {
+  const classMap = {
+    "合格": "receipt-card--qualified",
+    "複查合格": "receipt-card--recheck-qualified",
+    "限期改善": "receipt-card--improvement",
+    "複查不合格": "receipt-card--unqualified",
+    "輔導改善": "receipt-card--guidance",
+  };
+  return classMap[auditResult] || "receipt-card--default";
+}
+
+// Get badge CSS class based on audit result
+function getAuditBadgeClass(auditResult) {
+  const classMap = {
+    "複查合格": "receipt-audit-badge--success",
+    "限期改善": "receipt-audit-badge--warning",
+    "複查不合格": "receipt-audit-badge--error",
+    "輔導改善": "receipt-audit-badge--guidance",
+  };
+  return classMap[auditResult] || "receipt-audit-badge--default";
+}
+
 function prevMonth() {
   const newDate = new Date(currentDate.value);
   newDate.setMonth(newDate.getMonth() - 1);
@@ -154,6 +169,11 @@ function nextMonth() {
 function goBack() {
   router.back();
 }
+
+// Load receipt data on mount
+onMounted(() => {
+  receipts.value = transformReceiptData(receiptData);
+});
 </script>
 
 <style scoped>
@@ -279,13 +299,60 @@ function goBack() {
   background-color: var(--grayscale-50);
 }
 
-.receipt-card--error {
+/* 合格 - 白色背景，綠色邊框 */
+.receipt-card--qualified {
+  background-color: var(--white);
+  border-left-color: #4CAF50;
+}
+
+.receipt-card--qualified:active {
+  background-color: var(--grayscale-50);
+}
+
+/* 複查合格 - 淺綠色背景 */
+.receipt-card--recheck-qualified {
+  background-color: #E8F5E9;
+  border-left-color: #4CAF50;
+}
+
+.receipt-card--recheck-qualified:active {
+  background-color: #C8E6C9;
+}
+
+/* 限期改善 - 黃色背景 */
+.receipt-card--improvement {
+  background-color: #FFF9E6;
+  border-left-color: var(--secondary-500);
+}
+
+.receipt-card--improvement:active {
+  background-color: #FFF3C4;
+}
+
+/* 複查不合格 - 紅色背景 */
+.receipt-card--unqualified {
   background-color: var(--red-50);
   border-left-color: var(--red-500);
 }
 
-.receipt-card--error:active {
+.receipt-card--unqualified:active {
   background-color: var(--red-100);
+}
+
+/* 輔導改善 - 橙色背景 */
+.receipt-card--guidance {
+  background-color: #FFF3E0;
+  border-left-color: #FF9800;
+}
+
+.receipt-card--guidance:active {
+  background-color: #FFE0B2;
+}
+
+/* 預設樣式 */
+.receipt-card--default {
+  background-color: var(--white);
+  border-left-color: var(--grayscale-300);
 }
 
 .receipt-card-content {
@@ -308,13 +375,32 @@ function goBack() {
   margin: 0;
 }
 
-.receipt-error-badge {
+.receipt-audit-badge {
   font-size: 12px;
   font-weight: 600;
   color: var(--white);
-  background-color: var(--red-500);
   padding: 2px 8px;
   border-radius: 12px;
+}
+
+.receipt-audit-badge--success {
+  background-color: #4CAF50;
+}
+
+.receipt-audit-badge--warning {
+  background-color: var(--secondary-500);
+}
+
+.receipt-audit-badge--error {
+  background-color: var(--red-500);
+}
+
+.receipt-audit-badge--guidance {
+  background-color: #FF9800;
+}
+
+.receipt-audit-badge--default {
+  background-color: var(--grayscale-500);
 }
 
 .receipt-info {
@@ -329,14 +415,7 @@ function goBack() {
   margin: 0;
 }
 
-.receipt-amount {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--primary-600);
-  margin: 0;
-}
-
-.receipt-description {
+.receipt-seller-id {
   font-size: 14px;
   color: var(--grayscale-600);
   margin: 0;

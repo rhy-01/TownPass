@@ -2,11 +2,16 @@
   <div class="store-page">
     <!-- AppBar -->
     <header class="app-bar">
-      <button @click="goBack" class="back-button">
+      <button
+        class="back-button"
+        @click="goBack"
+      >
         <span class="material-icons">arrow_back</span>
       </button>
-      <h1 class="app-bar-title">店家查詢</h1>
-      <div class="app-bar-spacer"></div>
+      <h1 class="app-bar-title">
+        店家查詢
+      </h1>
+      <div class="app-bar-spacer" />
     </header>
 
     <!-- Content -->
@@ -20,7 +25,7 @@
             placeholder="搜尋店家名稱"
             class="search-input"
             type="text"
-          />
+          >
         </div>
       </div>
 
@@ -29,33 +34,61 @@
         <button
           v-for="f in filters"
           :key="f"
-          @click="toggleFilter(f)"
           class="filter-button"
           :class="{ 'filter-button--active': selectedFilters[f] }"
+          @click="toggleFilter(f)"
         >
           {{ f }}
         </button>
       </div>
 
+      <!-- Loading State -->
+      <div
+        v-if="isLoading"
+        class="empty-state"
+      >
+        <p class="empty-state-text">
+          載入中...
+        </p>
+      </div>
+
       <!-- Store List -->
-      <div v-if="filteredStores.length > 0" class="store-list">
+      <div
+        v-else-if="filteredStores.length > 0"
+        class="store-list"
+      >
         <div
           v-for="store in filteredStores"
-          :key="store.name"
+          :key="store.registrationNumber"
           class="store-card"
         >
           <div class="store-card-content">
             <div class="store-info">
-              <h3 class="store-name">{{ store.name }}</h3>
-              <p class="store-address">{{ store.address }}</p>
+              <h3 class="store-name">
+                {{ store.name }}
+              </h3>
+              <p
+                v-if="store.address"
+                class="store-address"
+              >
+                {{ store.address }}
+              </p>
+              <p
+                v-else-if="store.addressLoading"
+                class="store-address store-address--loading"
+              >
+                載入地址中...
+              </p>
+              <p
+                v-if="store.inspectionDate"
+                class="store-date"
+              >
+                稽查日期：{{ store.inspectionDate }}
+              </p>
             </div>
             <span
               class="store-status"
-              :class="{
-                'store-status--warning': store.status === '限期改善',
-                'store-status--success': store.status === '優良',
-                'store-status--info': store.status === '合格'
-              }"
+              :class="getStatusClass(store.status)"
             >
               {{ store.status }}
             </span>
@@ -64,42 +97,156 @@
       </div>
 
       <!-- Empty State -->
-      <div v-else class="empty-state">
-        <p class="empty-state-text">找不到符合條件的店家</p>
+      <div
+        v-else
+        class="empty-state"
+      >
+        <p class="empty-state-text">
+          {{ hasError ? '載入失敗，請稍後再試' : '找不到符合條件的店家' }}
+        </p>
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { reactive, ref, computed } from "vue";
+import { reactive, ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { getUnsafeLocations } from "@/utils/api";
+import { reverseGeocode } from "@/utils/flutterBridge";
+import { addDebugLog } from "@/utils/debugLogger";
 
 const router = useRouter();
 
-const filters = ["限期改善", "合格", "優良"];
+// 根據 API 返回的實際狀態更新過濾器
+const filters = ["複查不合格", "不合格", "限期改善", "輔導改善", "合格", "複查合格", "優良"];
 const selectedFilters = reactive({});
 filters.forEach((f) => (selectedFilters[f] = false));
 
 const searchQuery = ref("");
+const stores = ref([]);
+const isLoading = ref(false);
+const hasError = ref(false);
 
-const mockStores = [
-  { name: "阿明小吃", address: "台北市信義區松高路12號", status: "合格" },
-  { name: "幸福滷味", address: "台北市中正區忠孝西路1號", status: "限期改善" },
-  { name: "安心便當", address: "台北市大安區復興南路200號", status: "優良" },
-];
+// 根據狀態獲取樣式類別
+function getStatusClass(status) {
+  if (!status) return "store-status--default";
+  const statusLower = String(status).toLowerCase();
+  
+  // 不合格狀態
+  if (statusLower.includes("複查不合格")) return "store-status--recheck-unqualified";
+  if (statusLower.includes("不合格") && !statusLower.includes("複查")) return "store-status--unqualified";
+  
+  // 改善狀態
+  if (statusLower.includes("限期改善")) return "store-status--improvement";
+  if (statusLower.includes("輔導改善")) return "store-status--guidance";
+  
+  // 合格狀態
+  if (statusLower.includes("優良")) return "store-status--success";
+  if (statusLower.includes("複查合格")) return "store-status--recheck-qualified";
+  if (statusLower.includes("合格") && !statusLower.includes("複查")) return "store-status--info";
+  
+  return "store-status--default";
+}
+
+// 批量獲取地址（避免同時發送太多請求）
+async function loadAddressesBatch(storesToLoad, batchSize = 5) {
+  for (let i = 0; i < storesToLoad.length; i += batchSize) {
+    const batch = storesToLoad.slice(i, i + batchSize);
+    await Promise.all(
+      batch.map(async (store) => {
+        if (store.latitude && store.longitude && !store.address && !store.addressLoading) {
+          store.addressLoading = true;
+          try {
+            const address = await reverseGeocode(store.latitude, store.longitude);
+            store.address = address;
+            addDebugLog("log", "Address loaded for store", {
+              name: store.name,
+              address,
+            });
+          } catch (error) {
+            addDebugLog("error", "Failed to load address", {
+              name: store.name,
+              error: error.message,
+            });
+            store.address = "";
+          } finally {
+            store.addressLoading = false;
+          }
+        }
+      })
+    );
+    // 添加小延遲以避免 API 限流
+    if (i + batchSize < storesToLoad.length) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  }
+}
+
+// 格式化日期顯示
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    // 如果已經是 YYYY-MM-DD 格式，轉換為 YYYY/MM/DD
+    if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      return dateStr.replace(/-/g, "/").split(" ")[0]; // 只取日期部分，忽略時間
+    }
+    return dateStr;
+  } catch (error) {
+    return dateStr;
+  }
+}
+
+// 載入店家資料
+async function loadStores() {
+  isLoading.value = true;
+  hasError.value = false;
+  try {
+    const data = await getUnsafeLocations();
+    
+    stores.value = data.map((item) => {
+      const inspectionDate = item.inspectionDate || item.inspection_date || "";
+      return {
+        registrationNumber: item.registrationNumber || "",
+        name: item.businessName || "",
+        latitude: item.latitude,
+        longitude: item.longitude,
+        status: item.inspectionStatus || "",
+        address: "",
+        addressLoading: false,
+        inspectionDate: formatDate(inspectionDate),
+      };
+    });
+    
+    addDebugLog("log", "Stores loaded", { count: stores.value.length });
+    
+    // 異步載入地址（只載入可見的店家地址，優化性能）
+    loadAddressesBatch(stores.value).catch((error) => {
+      addDebugLog("error", "Failed to load addresses", { error: error.message });
+    });
+  } catch (error) {
+    addDebugLog("error", "Failed to load stores", { error: error.message });
+    hasError.value = true;
+    stores.value = [];
+  } finally {
+    isLoading.value = false;
+  }
+}
 
 function toggleFilter(f) {
   selectedFilters[f] = !selectedFilters[f];
 }
 
 const filteredStores = computed(() => {
-  let result = mockStores.filter((store) =>
-    store.name.includes(searchQuery.value)
+  let result = stores.value.filter((store) =>
+    store.name.toLowerCase().includes(searchQuery.value.toLowerCase())
   );
   const activeFilters = Object.keys(selectedFilters).filter((f) => selectedFilters[f]);
   if (activeFilters.length) {
-    result = result.filter((s) => activeFilters.includes(s.status));
+    result = result.filter((s) => {
+      const status = s.status || "";
+      return activeFilters.some((filter) => status.includes(filter));
+    });
   }
   return result;
 });
@@ -107,6 +254,10 @@ const filteredStores = computed(() => {
 function goBack() {
   router.back();
 }
+
+onMounted(() => {
+  loadStores();
+});
 </script>
 
 <style scoped>
@@ -301,6 +452,47 @@ function goBack() {
 .store-status--info {
   background-color: var(--grayscale-100);
   color: var(--grayscale-700);
+}
+
+.store-status--default {
+  background-color: var(--grayscale-100);
+  color: var(--grayscale-700);
+}
+
+.store-status--unqualified {
+  background-color: var(--red-50);
+  color: var(--red-600);
+}
+
+.store-status--recheck-unqualified {
+  background-color: #FFEBEE;
+  color: #C62828;
+}
+
+.store-status--improvement {
+  background-color: #FFF3E0;
+  color: #E65100;
+}
+
+.store-status--guidance {
+  background-color: #FFF8E1;
+  color: #F57C00;
+}
+
+.store-status--recheck-qualified {
+  background-color: #E1F5FE;
+  color: #0277BD;
+}
+
+.store-address--loading {
+  font-style: italic;
+  opacity: 0.6;
+}
+
+.store-date {
+  font-size: 12px;
+  color: var(--grayscale-400);
+  margin: 4px 0 0 0;
 }
 
 /* Empty State */

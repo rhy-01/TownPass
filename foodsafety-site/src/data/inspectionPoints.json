@@ -1,0 +1,67 @@
+[
+  {
+    "storeName": "阿明小吃",
+    "address": "台北市信義區松高路12號",
+    "lat": 25.0409,
+    "lng": 121.5678,
+    "status": "不合格",
+    "inspectionDate": "2025-11-10"
+  },
+  {
+    "storeName": "幸福滷味",
+    "address": "台北市中正區忠孝西路1號",
+    "lat": 25.0479,
+    "lng": 121.5170,
+    "status": "限期改善",
+    "inspectionDate": "2025-11-08"
+  },
+  {
+    "storeName": "阿明臭豆腐",
+    "address": "台北市松山區八德路四段",
+    "lat": 25.0500,
+    "lng": 121.5650,
+    "status": "限期改善",
+    "inspectionDate": "2025-11-05"
+  },
+  {
+    "storeName": "小美烤魷魚",
+    "address": "台北市松山區饒河街",
+    "lat": 25.0510,
+    "lng": 121.5750,
+    "status": "不合格",
+    "inspectionDate": "2025-11-03"
+  },
+  {
+    "storeName": "安心便當",
+    "address": "台北市大安區復興南路200號",
+    "lat": 25.0330,
+    "lng": 121.5430,
+    "status": "優良",
+    "inspectionDate": "2025-11-01"
+  },
+  {
+    "storeName": "小王排骨酥",
+    "address": "台北市松山區饒河街",
+    "lat": 25.0520,
+    "lng": 121.5760,
+    "status": "優良",
+    "inspectionDate": "2025-10-28"
+  },
+  {
+    "storeName": "黃家胡椒餅",
+    "address": "台北市松山區八德路四段",
+    "lat": 25.0490,
+    "lng": 121.5640,
+    "status": "合格",
+    "inspectionDate": "2025-10-25"
+  },
+  {
+    "storeName": "阿雄滷味",
+    "address": "台中市西屯區逢甲路",
+    "lat": 24.1790,
+    "lng": 120.6440,
+    "status": "限期改善",
+    "inspectionDate": "2025-10-20"
+  }
+]
+

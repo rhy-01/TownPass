@@ -2,58 +2,97 @@
   <div class="notification-page">
     <!-- AppBar -->
     <header class="app-bar">
-      <button @click="goBack" class="back-button">
+      <button
+        class="back-button"
+        @click="goBack"
+      >
         <span class="material-icons">arrow_back</span>
       </button>
-      <h1 class="app-bar-title">通知中心</h1>
-      <div class="app-bar-spacer"></div>
+      <h1 class="app-bar-title">
+        通知中心
+      </h1>
+      <div class="app-bar-spacer" />
     </header>
 
     <!-- Content -->
     <main class="content">
-      <div v-if="notifications.length > 0" class="notification-list">
+      <div
+        v-if="notifications.length > 0"
+        class="notification-list"
+      >
         <div
           v-for="(n, i) in notifications"
           :key="i"
-          @click="markAsRead(n)"
           class="notification-card"
           :class="{ 'notification-card--read': n.isRead }"
+          @click="markAsRead(n)"
         >
-          <div class="notification-indicator" :class="{ 'notification-indicator--read': n.isRead }"></div>
+          <div
+            class="notification-indicator"
+            :class="{ 'notification-indicator--read': n.isRead }"
+          />
           <div class="notification-content">
             <div class="notification-header">
-              <span class="material-icons notification-icon" :class="{ 'notification-icon--read': n.isRead }">
+              <span
+                class="material-icons notification-icon"
+                :class="{ 'notification-icon--read': n.isRead }"
+              >
                 {{ n.isRead ? 'notifications_none' : 'notifications_active' }}
               </span>
-              <h3 class="notification-title" :class="{ 'notification-title--read': n.isRead }">
+              <h3
+                class="notification-title"
+                :class="{ 'notification-title--read': n.isRead }"
+              >
                 {{ n.title }}
               </h3>
             </div>
-            <p class="notification-text">{{ n.content }}</p>
+            <p class="notification-text">
+              {{ n.content }}
+            </p>
           </div>
         </div>
       </div>
-      <div v-else class="empty-state">
-        <p class="empty-state-text">目前尚無通知</p>
+      <div
+        v-else
+        class="empty-state"
+      >
+        <p class="empty-state-text">
+          目前尚無通知
+        </p>
       </div>
     </main>
   </div>
 </template>
 
 <script setup>
-import { reactive } from "vue";
+import { reactive, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import notificationData from "@/data/notification.json";
 
 const router = useRouter();
 
-const notifications = reactive([
-  { title: "食品安全快訊", content: "最新抽驗結果已公布。", isRead: false },
-  { title: "夜市衛生稽查公告", content: "部分攤商需限期改善。", isRead: true },
-  { title: "防疫新規提醒", content: "請配合政府防疫規範。", isRead: false },
-]);
+const notifications = reactive([]);
+
+// 載入 notification.json 資料
+onMounted(() => {
+  // 將 JSON 資料轉換為元件所需的格式
+  const formattedNotifications = notificationData.map((item) => ({
+    title: item.title,
+    content: item.message,
+    isRead: item.read,
+    type: item.type,
+    date: item.date,
+  }));
+  
+  // 將資料加入 reactive 陣列
+  notifications.push(...formattedNotifications);
+});
 
 function markAsRead(n) {
-  n.isRead = true;
+  // 只有在 read 為 false 時才改為 true
+  if (!n.isRead) {
+    n.isRead = true;
+  }
 }
 
 function goBack() {

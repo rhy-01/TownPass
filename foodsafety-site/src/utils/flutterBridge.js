@@ -3,6 +3,8 @@
  * 用於與Flutter App進行通信
  */
 
+import { addDebugLog } from './debugLogger';
+
 // 存儲pending的請求，key為請求ID，value為Promise的resolve和reject函數
 const pendingRequests = new Map();
 let requestIdCounter = 0;
@@ -23,6 +25,8 @@ export function initFlutterBridge() {
     });
     return false;
   }
+  
+  addDebugLog('log', 'Flutter bridge initialized');
 
   console.log('[Two-Way Connection] ✅ Window 和 flutterObject 可用');
   console.log('[Two-Way Connection] flutterObject:', window.flutterObject);
@@ -200,6 +204,8 @@ export function callFlutterMethod(methodName, data = null) {
         timestamp
       });
       
+      addDebugLog('log', `Calling Flutter method: ${methodName}`, { requestId, data });
+      
       // 存儲resolve和reject函數
       const timeout = setTimeout(() => {
         if (pendingRequests.has(requestId)) {
@@ -209,7 +215,9 @@ export function callFlutterMethod(methodName, data = null) {
             timeout: '10 seconds'
           });
           pendingRequests.delete(requestId);
-          reject(new Error(`Flutter method ${methodName} timed out after 10 seconds`));
+          const error = new Error(`Flutter method ${methodName} timed out after 10 seconds`);
+          addDebugLog('error', `Flutter method timeout: ${methodName}`, { requestId });
+          reject(error);
         }
       }, 10000); // 10秒超時
 
@@ -221,6 +229,7 @@ export function callFlutterMethod(methodName, data = null) {
             responseData
           });
           clearTimeout(timeout);
+          addDebugLog('log', `Flutter method response: ${methodName}`, { requestId, responseData });
           resolve(responseData);
         },
         reject: (error) => {
@@ -230,6 +239,7 @@ export function callFlutterMethod(methodName, data = null) {
             error: error.message
           });
           clearTimeout(timeout);
+          addDebugLog('error', `Flutter method error: ${methodName}`, { requestId, error: error.message });
           reject(error);
         },
         methodName,
@@ -303,8 +313,7 @@ export async function getCurrentLocation() {
 
 /**
  * 將經緯度轉換為地址
- * 使用Google Maps Geocoding API (需要API key)
- * 或者可以使用其他reverse geocoding服務
+ * 使用 OpenStreetMap Nominatim API（免費的逆地理編碼服務）
  * @param {number} lat - 緯度
  * @param {number} lng - 經度
  * @returns {Promise<string>} 地址字符串
@@ -312,6 +321,13 @@ export async function getCurrentLocation() {
 export async function reverseGeocode(lat, lng) {
   console.log('[Two-Way Connection] 🗺️ 反向地理編碼:', { lat, lng });
   try {
+    // 使用 Nominatim (OpenStreetMap) - 免費的逆地理編碼服務
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=zh-TW,zh,en`,
+      {
+        headers: {
+          'User-Agent': 'TownPass-FoodSafety/1.0'
+        }
     // 這裡可以使用Google Maps Geocoding API或其他服務
     // 由於需要API key，我們先使用一個簡單的實現
     // 實際應用中應該使用真實的geocoding服務
@@ -373,6 +389,7 @@ export async function reverseGeocode(lat, lng) {
     console.log('[Two-Way Connection] ✅ 使用顯示名稱:', result);
     return result;
   } catch (error) {
+    addDebugLog('error', 'Error reverse geocoding', { error: error.message, lat, lng });
     console.error('[Two-Way Connection] ❌ 反向地理編碼失敗:', error);
     console.error('[Two-Way Connection] 錯誤詳情:', error.message);
     // 如果geocoding失敗，返回經緯度作為fallback
@@ -401,6 +418,7 @@ export async function getCurrentLocationAddress() {
     console.log('[Two-Way Connection] ✅ 最終地址:', address);
     return address;
   } catch (error) {
+    addDebugLog('error', 'Error getting current location address', { error: error.message });
     console.error('[Two-Way Connection] ❌ 獲取當前位置地址失敗:', error);
     console.error('[Two-Way Connection] 錯誤詳情:', error.message);
     return null;

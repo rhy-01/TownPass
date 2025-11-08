@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "core-js": "^3.8.3",
+    "leaflet": "^1.9.4",
     "vue": "^3.2.13",
     "vue-router": "^4.6.3"
   },
@@ -24,14 +25,28 @@
   "eslintConfig": {
     "root": true,
     "env": {
-      "node": true
+      "node": true,
+      "browser": true,
+      "es2021": true
     },
     "extends": [
-      "plugin:vue/vue3-essential",
+      "plugin:vue/vue3-recommended",
       "eslint:recommended"
     ],
     "parserOptions": {
-      "parser": "@babel/eslint-parser"
+      "parser": "@babel/eslint-parser",
+      "ecmaVersion": 2021,
+      "sourceType": "module",
+      "requireConfigFile": false,
+      "babelOptions": {
+        "presets": ["@babel/preset-env"]
+      }
+    },
+    "globals": {
+      "defineProps": "readonly",
+      "defineEmits": "readonly",
+      "defineExpose": "readonly",
+      "withDefaults": "readonly"
     },
     "rules": {}
   },
