@@ -90,53 +90,9 @@ app.*.map.json
 # FVM Version Cache
 .fvm/
 
-# Python (Backend)
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-# Virtual Environment
-venv/
-env/
-ENV/
-.venv
-
-# Temporary files
-*.temp
-*.tmp
-*.log
-
-# Ignore txt files except requirements.txt
-*.txt
-!requirements.txt
-!backend/requirements.txt
-
-# Backup folder
-backup/
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Keep PDF source files but ignore processed files
-# Output files (optional - remove these lines if you want to track output)
-backend/夜市食安微笑標章獲頒名單/*.json
-backend/夜市食安微笑標章獲頒名單/*.csv
+# foodsafety-site (Vue.js project)
+foodsafety-site/node_modules/
+foodsafety-site/dist/
+foodsafety-site/.env
+foodsafety-site/.env.local
+foodsafety-site/.env.*.local
