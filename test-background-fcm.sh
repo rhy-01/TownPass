@@ -26,3 +26,5 @@ echo ""
 # 監控 Flutter、FCM 相關日志
 adb logcat | grep -E "flutter|FCM|FirebaseMessaging|firebase_messaging|背景訊息|firebaseMessagingBackgroundHandler|1"
 
+
+

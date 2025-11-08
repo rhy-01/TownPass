@@ -49,30 +49,69 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('訊息 ID: ${message.messageId}');
   print('訊息時間: ${message.sentTime}');
   print('訊息數據: ${message.data}');
+  print('通知標題: ${message.notification?.title}');
+  print('通知內容: ${message.notification?.body}');
   
-  // 決策邏輯：檢查 title 欄位是否為 '1'
+  // 從 data 字段讀取餐廳資訊（匹配 Python 後端發送的格式）
   final data = message.data;
-  final title = data['title'];
+  final restaurantName = data['restaurant_name']?.toString();
+  final regNo = data['restaurant_reg_no']?.toString();
+  final lat = data['restaurant_latitude']?.toString();
+  final lng = data['restaurant_longitude']?.toString();
+  final status = data['restaurant_status']?.toString();
+  final type = data['type']?.toString();
+  // targetUrl 和 timestamp 保留供將來使用（例如導航到餐廳詳情頁）
+  final targetUrl = data['targetUrl']?.toString();
+  final timestamp = data['timestamp']?.toString();
   
-  // 輸出接收到的 title
-  print('接收到的 title: $title');
+  // 獲取 title 和 body（優先從 notification，否則從 data）
+  String? title;
+  String? body;
   
-  // 如果 title 是 '1'，就發出通知
-  if (title == '1') {
-    print('✅ title 是 "1"，將顯示通知');
-    
-    // 獲取通知內容（使用 body 作為通知內容）
-    final notificationBody = data['body'] ?? '通知';
-    
-    // 在背景處理器中顯示通知
-    // 需要單獨初始化 FlutterLocalNotificationsPlugin
-    await _showBackgroundNotification('通知', notificationBody);
-    
-    print('通知已顯示');
+  if (message.notification?.title != null) {
+    title = message.notification!.title;
+    body = message.notification!.body;
+  } else if (data.containsKey('title')) {
+    title = data['title']?.toString();
+    body = data['body']?.toString();
+  }
+  
+  print('📋 接收到的 FCM 訊息（背景）：');
+  print('  餐廳名稱: $restaurantName');
+  print('  登記號碼: $regNo');
+  print('  經緯度: ($lat, $lng)');
+  print('  狀態: $status');
+  print('  類型: $type');
+  print('  目標 URL: $targetUrl');
+  print('  時間戳: $timestamp');
+  print('  標題: $title');
+  print('  內容: $body');
+  
+  // 檢查是否有經緯度（必要條件）
+  if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
+    // 如果有經緯度，就顯示通知（無論 title 是否包含"不合格"）
+    // 因為 Python 後端已經過濾了，只有不合格的才會發送
+    if (title != null && title.isNotEmpty) {
+      print('✅ 有經緯度且 title，將顯示通知');
+      print('標題: $title');
+      print('內容: ${body ?? "無內容"}');
+      print('餐廳: $restaurantName');
+      print('經緯度: ($lat, $lng)');
+      
+      // 在背景處理器中顯示通知
+      await _showBackgroundNotification(title, body ?? '您有新的通知');
+      
+      print('通知已顯示');
+    } else {
+      print('ℹ️  有經緯度但沒有 title，只輸出日志');
+      print('完整數據: ${message.data}');
+    }
   } else {
-    // 如果 title 不是 '1'，就只在 log 輸出
-    print('❌ title 不是 "1" ($title)，只輸出日志，不顯示通知');
-    print('完整數據: $data');
+    print('⚠️  沒有經緯度或經緯度為空，只輸出日志');
+    print('完整數據: ${message.data}');
+    if (message.notification != null) {
+      print('通知對象: ${message.notification}');
+    }
   }
   
   print('=== 背景訊息處理完成 ===');
@@ -168,6 +207,29 @@ void main() async {
   } catch (e) {
     print('⚠️  無法載入 .env 文件: $e');
     print('將使用預設的 Firebase 配置值');
+  }
+  
+  // 初始化 Firebase（在主線程中）
+  // 嘗試初始化 Firebase，如果已經初始化則忽略錯誤
+  try {
+    if (Firebase.apps.isEmpty) {
+      print('🔄 初始化 Firebase...');
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+      print('✅ Firebase 初始化成功');
+    } else {
+      print('✅ Firebase 已經初始化（${Firebase.apps.length} 個應用）');
+    }
+  } catch (e) {
+    // 檢查是否為重複初始化錯誤
+    if (e.toString().contains('duplicate-app') || e.toString().contains('already exists')) {
+      print('✅ Firebase 已經存在（可能在其他地方已初始化），繼續執行');
+    } else {
+      // 其他錯誤，重新拋出
+      print('❌ Firebase 初始化失敗: $e');
+      rethrow;
+    }
   }
   
   // 重要：必須在任何 Firebase 操作之前註冊背景訊息處理器
