@@ -286,25 +286,40 @@ async function loadNightMarketShops(marketName) {
 
     data.forEach((shop) => {
       const evaluationResult = shop.evaluationResult || "";
+      const inspectionStatus = shop.inspectionStatus || "";
+      
+      // 優先使用 inspectionStatus 作為顯示狀態（代表最新的稽查狀態）
+      // 如果沒有 inspectionStatus，則使用 evaluationResult
+      const status = inspectionStatus || evaluationResult;
+      
       const shopItem = {
         name: shop.stallName || shop.businessName || "",
-        address: "",
-        status: evaluationResult,
+        address: shop.address || "",
+        status: status,
       };
 
       // 調試：記錄每個店家的狀態
       addDebugLog("log", "Shop evaluation result", {
         name: shopItem.name,
         evaluationResult: evaluationResult,
+        inspectionStatus: inspectionStatus,
         status: shopItem.status,
-        cardClass: getCardClass(evaluationResult),
-        statusClass: getStatusClass(evaluationResult),
+        cardClass: getCardClass(status),
+        statusClass: getStatusClass(status),
       });
 
-      if (isUnqualifiedShop(evaluationResult)) {
+      // 優先判斷 inspectionStatus（最新稽查狀態）
+      // 如果 inspectionStatus 顯示不合格，則歸入不合格名單（優先級最高）
+      // 否則根據 evaluationResult 判斷是否為優良店家
+      if (inspectionStatus && isUnqualifiedShop(inspectionStatus)) {
+        // 有 inspectionStatus 且為不合格，歸入不合格名單
         unqualified.push(shopItem);
-      } else if (isGoodShop(evaluationResult)) {
+      } else if (evaluationResult && isGoodShop(evaluationResult)) {
+        // evaluationResult 為優良，歸入優良名單
         good.push(shopItem);
+      } else if (evaluationResult && isUnqualifiedShop(evaluationResult)) {
+        // 只有 evaluationResult 且為不合格，歸入不合格名單
+        unqualified.push(shopItem);
       }
     });
 

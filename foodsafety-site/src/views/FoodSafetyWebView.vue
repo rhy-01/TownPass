@@ -94,50 +94,6 @@
           夜市
         </button>
       </div>
-
-      <!-- Latest News Section -->
-      <section class="news-section">
-        <div class="news-section-header">
-          <h2 class="news-section-title">
-            最新消息
-          </h2>
-          <button
-            class="news-section-more"
-            @click="goActivity"
-          >
-            更多
-          </button>
-        </div>
-        <div
-          v-if="latestNews.length > 0"
-          class="news-list"
-        >
-          <article
-            v-for="(news, index) in latestNews"
-            :key="index"
-            class="news-card"
-            @click="goActivity"
-          >
-            <div class="news-card-content">
-              <h3 class="news-card-title">
-                {{ news.title }}
-              </h3>
-              <p class="news-card-date">
-                {{ news.date }}
-              </p>
-            </div>
-            <span class="material-icons news-card-arrow">chevron_right</span>
-          </article>
-        </div>
-        <div
-          v-else
-          class="empty-state"
-        >
-          <p class="empty-state-text">
-            目前尚無最新消息
-          </p>
-        </div>
-      </section>
     </main>
 
     <!-- Dropdown Overlay -->
@@ -176,18 +132,39 @@ const mapZoom = ref(13);
 const inspectionMarkers = ref([]);
 const forceMapUpdate = ref(false); // 用於強制更新地圖中心點
 
+// 格式化日期顯示
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  try {
+    // 處理 YYYY.MM.DD 格式（新 API 格式），轉換為 YYYY/MM/DD
+    if (typeof dateStr === "string" && /^\d{4}\.\d{2}\.\d{2}/.test(dateStr)) {
+      return dateStr.replace(/\./g, "/").split(" ")[0]; // 只取日期部分，忽略時間
+    }
+    // 處理 YYYY-MM-DD 格式，轉換為 YYYY/MM/DD
+    if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+      return dateStr.replace(/-/g, "/").split(" ")[0]; // 只取日期部分，忽略時間
+    }
+    return dateStr;
+  } catch (error) {
+    return dateStr;
+  }
+}
+
 // 載入稽查資料點
 async function loadInspectionMarkers() {
   try {
     const data = await getUnsafeLocations();
-    inspectionMarkers.value = data.map((point) => ({
-      lat: point.latitude,
-      lng: point.longitude,
-      storeName: point.businessName,
-      address: "",
-      status: point.inspectionStatus,
-      inspectionDate: "",
-    }));
+    inspectionMarkers.value = data.map((point) => {
+      const inspectionDate = point.inspectionDate || point.inspection_date || "";
+      return {
+        lat: point.latitude,
+        lng: point.longitude,
+        storeName: point.businessName || "", // 名稱
+        address: point.address || "", // 地址
+        status: point.inspectionStatus || "", // 標籤/狀態
+        inspectionDate: formatDate(inspectionDate), // 日期
+      };
+    });
     addDebugLog("log", "Loaded inspection markers", {
       count: inspectionMarkers.value.length,
     });
@@ -265,13 +242,6 @@ function goNightMarket() {
   router.push("/night-market");
 }
 
-// Latest news
-const latestNews = ref([
-  { title: "食品安全檢驗報告更新", date: "2025/11/05" },
-  { title: "夜市衛生宣導活動開跑", date: "2025/11/03" },
-  { title: "最新餐廳稽查公告", date: "2025/11/01" },
-]);
-
 // Navigation
 function goNotification() {
   router.push("/notification");
@@ -279,10 +249,6 @@ function goNotification() {
 
 function goReceipt() {
   router.push("/receipt");
-}
-
-function goActivity() {
-  router.push("/activities");
 }
 
 function goAddAddress() {
@@ -759,99 +725,6 @@ onUnmounted(() => {
 
 .action-button--active:hover {
   background-color: var(--primary-50);
-}
-
-/* News Section */
-.news-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.news-section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--grayscale-800);
-  margin: 0;
-}
-
-.news-section-more {
-  background: none;
-  border: none;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--primary-500);
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-card {
-  background-color: var(--white);
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.news-card:active {
-  background-color: var(--primary-50);
-}
-
-.news-card-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.news-card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--grayscale-800);
-  margin: 0;
-}
-
-.news-card-date {
-  font-size: 14px;
-  color: var(--grayscale-500);
-  margin: 0;
-}
-
-.news-card-arrow {
-  font-size: 24px;
-  color: var(--grayscale-400);
-  flex-shrink: 0;
-}
-
-/* Empty State */
-.empty-state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.empty-state-text {
-  font-size: 16px;
-  color: var(--grayscale-500);
-  margin: 0;
 }
 
 /* Dropdown Overlay */

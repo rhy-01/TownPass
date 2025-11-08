@@ -58,7 +58,7 @@
         class="store-list"
       >
         <div
-          v-for="store in filteredStores"
+          v-for="store in displayedStores"
           :key="store.registrationNumber"
           class="store-card"
         >
@@ -72,12 +72,6 @@
                 class="store-address"
               >
                 {{ store.address }}
-              </p>
-              <p
-                v-else-if="store.addressLoading"
-                class="store-address store-address--loading"
-              >
-                載入地址中...
               </p>
               <p
                 v-if="store.inspectionDate"
@@ -94,6 +88,15 @@
             </span>
           </div>
         </div>
+        
+        <!-- Show More Button -->
+        <button
+          v-if="showMoreButton"
+          class="show-more-button"
+          @click="showAllStores"
+        >
+          顯示更多
+        </button>
       </div>
 
       <!-- Empty State -->
@@ -110,10 +113,9 @@
 </template>
 
 <script setup>
-import { reactive, ref, computed, onMounted } from "vue";
+import { reactive, ref, computed, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { getUnsafeLocations } from "@/utils/api";
-import { reverseGeocode } from "@/utils/flutterBridge";
 import { addDebugLog } from "@/utils/debugLogger";
 
 const router = useRouter();
@@ -127,6 +129,8 @@ const searchQuery = ref("");
 const stores = ref([]);
 const isLoading = ref(false);
 const hasError = ref(false);
+const displayLimit = ref(10);
+const showAll = ref(false);
 
 // 根據狀態獲取樣式類別
 function getStatusClass(status) {
@@ -149,45 +153,15 @@ function getStatusClass(status) {
   return "store-status--default";
 }
 
-// 批量獲取地址（避免同時發送太多請求）
-async function loadAddressesBatch(storesToLoad, batchSize = 5) {
-  for (let i = 0; i < storesToLoad.length; i += batchSize) {
-    const batch = storesToLoad.slice(i, i + batchSize);
-    await Promise.all(
-      batch.map(async (store) => {
-        if (store.latitude && store.longitude && !store.address && !store.addressLoading) {
-          store.addressLoading = true;
-          try {
-            const address = await reverseGeocode(store.latitude, store.longitude);
-            store.address = address;
-            addDebugLog("log", "Address loaded for store", {
-              name: store.name,
-              address,
-            });
-          } catch (error) {
-            addDebugLog("error", "Failed to load address", {
-              name: store.name,
-              error: error.message,
-            });
-            store.address = "";
-          } finally {
-            store.addressLoading = false;
-          }
-        }
-      })
-    );
-    // 添加小延遲以避免 API 限流
-    if (i + batchSize < storesToLoad.length) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-  }
-}
-
 // 格式化日期顯示
 function formatDate(dateStr) {
   if (!dateStr) return "";
   try {
-    // 如果已經是 YYYY-MM-DD 格式，轉換為 YYYY/MM/DD
+    // 處理 YYYY.MM.DD 格式（新 API 格式），轉換為 YYYY/MM/DD
+    if (typeof dateStr === "string" && /^\d{4}\.\d{2}\.\d{2}/.test(dateStr)) {
+      return dateStr.replace(/\./g, "/").split(" ")[0]; // 只取日期部分，忽略時間
+    }
+    // 處理 YYYY-MM-DD 格式，轉換為 YYYY/MM/DD
     if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
       return dateStr.replace(/-/g, "/").split(" ")[0]; // 只取日期部分，忽略時間
     }
@@ -212,18 +186,12 @@ async function loadStores() {
         latitude: item.latitude,
         longitude: item.longitude,
         status: item.inspectionStatus || "",
-        address: "",
-        addressLoading: false,
+        address: item.address || "", // 直接使用 API 返回的地址
         inspectionDate: formatDate(inspectionDate),
       };
     });
     
     addDebugLog("log", "Stores loaded", { count: stores.value.length });
-    
-    // 異步載入地址（只載入可見的店家地址，優化性能）
-    loadAddressesBatch(stores.value).catch((error) => {
-      addDebugLog("error", "Failed to load addresses", { error: error.message });
-    });
   } catch (error) {
     addDebugLog("error", "Failed to load stores", { error: error.message });
     hasError.value = true;
@@ -235,6 +203,8 @@ async function loadStores() {
 
 function toggleFilter(f) {
   selectedFilters[f] = !selectedFilters[f];
+  // 當篩選條件改變時，重置顯示狀態
+  showAll.value = false;
 }
 
 const filteredStores = computed(() => {
@@ -251,9 +221,37 @@ const filteredStores = computed(() => {
   return result;
 });
 
+// 顯示的店家列表（限制10筆或全部）
+const displayedStores = computed(() => {
+  if (showAll.value) {
+    return filteredStores.value;
+  }
+  return filteredStores.value.slice(0, displayLimit.value);
+});
+
+// 是否顯示「顯示更多」按鈕
+const showMoreButton = computed(() => {
+  return !showAll.value && filteredStores.value.length > displayLimit.value;
+});
+
+// 顯示所有店家
+function showAllStores() {
+  showAll.value = true;
+}
+
 function goBack() {
   router.back();
 }
+
+// 監聽搜尋條件變化，重置顯示狀態
+watch(searchQuery, () => {
+  showAll.value = false;
+});
+
+// 監聽篩選結果變化，重置顯示狀態
+watch(filteredStores, () => {
+  showAll.value = false;
+});
 
 onMounted(() => {
   loadStores();
@@ -485,10 +483,6 @@ onMounted(() => {
   color: #0277BD;
 }
 
-.store-address--loading {
-  font-style: italic;
-  opacity: 0.6;
-}
 
 .store-date {
   font-size: 12px;
@@ -509,5 +503,30 @@ onMounted(() => {
   font-size: 16px;
   color: var(--grayscale-500);
   margin: 0;
+}
+
+/* Show More Button */
+.show-more-button {
+  width: 100%;
+  padding: 12px 16px;
+  margin-top: 8px;
+  background-color: var(--white);
+  border: 1px solid var(--grayscale-300);
+  border-radius: 8px;
+  color: var(--primary-500);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
+}
+
+.show-more-button:hover {
+  background-color: var(--primary-50);
+  border-color: var(--primary-500);
+}
+
+.show-more-button:active {
+  background-color: var(--primary-100);
 }
 </style>
