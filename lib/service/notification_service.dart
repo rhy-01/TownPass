@@ -25,6 +25,25 @@ class NotificationService extends GetxService {
 
     await _notificationInstance.initialize(initializationSettings);
 
+    // 創建通知通道（Android 8.0+）
+    // 這需要在應用程式啟動時創建，以便背景處理器可以使用
+    if (Platform.isAndroid) {
+      final androidImplementation = _notificationInstance
+          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+      
+      // 創建通知通道（如果不存在）
+      await androidImplementation?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          'TownPass android notification id',
+          'TownPass android notification channel name',
+          description: 'TownPass 通知通道',
+          importance: Importance.max,
+          playSound: true,
+          enableVibration: true,
+        ),
+      );
+    }
+
     return this;
   }
 
@@ -49,9 +68,14 @@ class NotificationService extends GetxService {
         android: AndroidNotificationDetails(
           'TownPass android notification id',
           'TownPass android notification channel name',
+          channelDescription: 'TownPass 通知通道',
           importance: Importance.max,
           priority: Priority.max,
+          showWhen: true,
+          playSound: true,
+          enableVibration: true,
         ),
+        iOS: DarwinNotificationDetails(),
       ),
     );
   }
