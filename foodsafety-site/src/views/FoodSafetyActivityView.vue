@@ -2,33 +2,50 @@
   <div class="activity-page">
     <!-- AppBar -->
     <header class="app-bar">
-      <button @click="goBack" class="back-button">
+      <button
+        class="back-button"
+        @click="goBack"
+      >
         <span class="material-icons">arrow_back</span>
       </button>
-      <h1 class="app-bar-title">食品安全活動</h1>
-      <div class="app-bar-spacer"></div>
+      <h1 class="app-bar-title">
+        食品安全活動
+      </h1>
+      <div class="app-bar-spacer" />
     </header>
 
     <!-- Content -->
     <main class="content">
-      <div v-if="allNews.length > 0" class="news-list">
+      <div
+        v-if="allNews.length > 0"
+        class="news-list"
+      >
         <article
           v-for="(news, i) in allNews"
           :key="i"
           class="news-item"
         >
           <div class="news-content">
-            <h3 class="news-title">{{ news.title }}</h3>
+            <h3 class="news-title">
+              {{ news.title }}
+            </h3>
             <div class="news-meta">
               <span class="news-date">{{ news.date }}</span>
               <span class="news-separator">｜</span>
-              <p class="news-desc">{{ news.desc }}</p>
+              <p class="news-desc">
+                {{ news.desc }}
+              </p>
             </div>
           </div>
         </article>
       </div>
-      <div v-else class="empty-state">
-        <p class="empty-state-text">目前尚無活動資訊</p>
+      <div
+        v-else
+        class="empty-state"
+      >
+        <p class="empty-state-text">
+          目前尚無活動資訊
+        </p>
       </div>
     </main>
   </div>

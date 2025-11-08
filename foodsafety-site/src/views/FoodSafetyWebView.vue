@@ -1,72 +1,79 @@
 <template>
   <div class="food-safety-page">
-    <!-- AppBar -->
-    <header class="app-bar">
-      <div class="app-bar-left">
-        <button @click="goNotification" class="app-bar-button">
-          <span class="material-icons">notifications_none</span>
-        </button>
-        <button @click="goReceipt" class="app-bar-button">
-          <span class="material-icons">receipt</span>
-        </button>
-      </div>
-      <h1 class="app-bar-title">食品安全</h1>
-      <div class="app-bar-right">
-        <button @click="goBack" class="app-bar-button">
-          <span class="material-icons">close</span>
-        </button>
-      </div>
-    </header>
-
     <!-- Content -->
     <main class="content">
-      <!-- Address Selector -->
-      <div class="address-section">
-        <div 
-          class="address-card" 
-          @click="toggleDropdown"
-        >
-          <span class="address-text">
-            {{ isLoadingLocation ? "正在載入地址..." : selectedAddress }}
-          </span>
-          <div class="address-dropdown-icon">
-            <span class="material-icons" :class="{ 'rotate-180': showDropdown }">expand_more</span>
+      <!-- Map Section with Address Overlay -->
+      <div class="map-section">
+        <GoogleMap
+          :center="mapCenter"
+          :zoom="mapZoom"
+          :markers="inspectionMarkers"
+          map-id="foodSafety"
+          :save-state="true"
+          :force-update="forceMapUpdate"
+        />
+        <!-- Address Selector with Action Icons - Overlay on Map -->
+        <div class="address-section address-section--overlay">
+          <div class="address-row">
+            <div class="address-icons">
+              <button
+                class="action-icon-button"
+                @click="goNotification"
+              >
+                <span class="material-icons">notifications_none</span>
+        </button>
+              <button
+                class="action-icon-button"
+                @click="goReceipt"
+              >
+                <span class="material-icons">receipt</span>
+        </button>
+      </div>
+            <div 
+              class="address-card" 
+              @click="toggleDropdown"
+            >
+              <span class="address-text">
+                {{ isLoadingLocation ? "正在載入地址..." : selectedAddress }}
+              </span>
+              <div class="address-dropdown-icon">
+                <span
+                  class="material-icons"
+                  :class="{ 'rotate-180': showDropdown }"
+                >expand_more</span>
+              </div>
+            </div>
           </div>
-        </div>
-        <!-- Dropdown positioned relative to address section -->
-        <div 
+          <!-- Dropdown positioned relative to address section -->
+          <div 
             v-if="showDropdown"
-          class="address-dropdown" 
-          @click.stop
+            class="address-dropdown" 
+            @click.stop
           >
-          <div
+            <div
               v-for="(address, index) in addressList"
               :key="index"
-            class="address-dropdown-item"
-            :class="{ 'address-dropdown-item--selected': address === selectedAddress }"
-            @click.stop="selectAddress(address)"
-          >
-            <span class="address-item-text">{{ address }}</span>
-            <button
-              @click.stop="deleteAddress(address, index)"
-              class="address-delete-button"
-              :aria-label="`刪除地址 ${address}`"
+              class="address-dropdown-item"
+              :class="{ 'address-dropdown-item--selected': address === selectedAddress }"
+              @click.stop="selectAddress(address)"
             >
-              <span class="material-icons">delete</span>
-            </button>
+              <span class="address-item-text">{{ address }}</span>
+              <button
+                class="address-delete-button"
+                :aria-label="`刪除地址 ${address}`"
+                @click.stop="deleteAddress(address, index)"
+              >
+                <span class="material-icons">delete</span>
+              </button>
+            </div>
+            <div
+              class="address-dropdown-item address-dropdown-item--add"
+              @click="goAddAddress"
+            >
+              <span class="material-icons">add</span>
+              <span>新增地址</span>
+            </div>
           </div>
-          <div class="address-dropdown-item address-dropdown-item--add" @click="goAddAddress">
-            <span class="material-icons">add</span>
-            <span>新增地址</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Map Section -->
-      <div class="map-section">
-        <div class="map-placeholder">
-          <span class="material-icons map-icon">map</span>
-          <p class="map-text">地圖預留區</p>
         </div>
       </div>
 
@@ -91,12 +98,20 @@
       <!-- Latest News Section -->
       <section class="news-section">
         <div class="news-section-header">
-          <h2 class="news-section-title">最新消息</h2>
-          <button @click="goActivity" class="news-section-more">
+          <h2 class="news-section-title">
+            最新消息
+          </h2>
+          <button
+            class="news-section-more"
+            @click="goActivity"
+          >
             更多
           </button>
         </div>
-        <div v-if="latestNews.length > 0" class="news-list">
+        <div
+          v-if="latestNews.length > 0"
+          class="news-list"
+        >
           <article
             v-for="(news, index) in latestNews"
             :key="index"
@@ -104,14 +119,23 @@
             @click="goActivity"
           >
             <div class="news-card-content">
-              <h3 class="news-card-title">{{ news.title }}</h3>
-              <p class="news-card-date">{{ news.date }}</p>
+              <h3 class="news-card-title">
+                {{ news.title }}
+              </h3>
+              <p class="news-card-date">
+                {{ news.date }}
+              </p>
             </div>
             <span class="material-icons news-card-arrow">chevron_right</span>
           </article>
         </div>
-        <div v-else class="empty-state">
-          <p class="empty-state-text">目前尚無最新消息</p>
+        <div
+          v-else
+          class="empty-state"
+        >
+          <p class="empty-state-text">
+            目前尚無最新消息
+          </p>
         </div>
       </section>
     </main>
@@ -121,18 +145,22 @@
       v-if="showDropdown"
       class="dropdown-overlay"
       @click="showDropdown = false"
-    ></div>
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from "vue";
+import { ref, onMounted, onUnmounted, onActivated } from "vue";
 import { useRouter } from "vue-router";
 import { 
   initFlutterBridge, 
   getCurrentLocationAddress, 
   getUserInfo 
 } from "@/utils/flutterBridge";
+import { addDebugLog } from "@/utils/debugLogger";
+import GoogleMap from "@/components/GoogleMap.vue";
+import { geocodeAddress } from "@/utils/geocode";
+import { getUnsafeLocations } from "@/utils/api";
 
 const router = useRouter();
 
@@ -142,15 +170,62 @@ const addressList = ref([]);
 const showDropdown = ref(false);
 const isLoadingLocation = ref(false);
 
+// Map settings
+const mapCenter = ref({ lat: 25.0330, lng: 121.5654 }); // 台北101 預設位置
+const mapZoom = ref(13);
+const inspectionMarkers = ref([]);
+const forceMapUpdate = ref(false); // 用於強制更新地圖中心點
+
+// 載入稽查資料點
+async function loadInspectionMarkers() {
+  try {
+    const data = await getUnsafeLocations();
+    inspectionMarkers.value = data.map((point) => ({
+      lat: point.latitude,
+      lng: point.longitude,
+      storeName: point.businessName,
+      address: "",
+      status: point.inspectionStatus,
+      inspectionDate: "",
+    }));
+    addDebugLog("log", "Loaded inspection markers", {
+      count: inspectionMarkers.value.length,
+    });
+  } catch (error) {
+    addDebugLog("error", "Failed to load inspection markers", {
+      error: error.message,
+    });
+    inspectionMarkers.value = [];
+  }
+}
+
 function toggleDropdown() {
   showDropdown.value = !showDropdown.value;
 }
 
-function selectAddress(address) {
+async function selectAddress(address) {
   selectedAddress.value = address;
   showDropdown.value = false;
   // Save selected address to localStorage
   localStorage.setItem("foodSafetySelectedAddress", address);
+  
+  // 更新地圖中心到選中的地址
+  try {
+    const coordinates = await geocodeAddress(address);
+    if (coordinates) {
+      // 設置強制更新標記，然後更新中心點
+      forceMapUpdate.value = true;
+      mapCenter.value = coordinates;
+      addDebugLog("log", "Map center updated by address selection", { address, ...coordinates });
+      
+      // 在下一個 tick 後重置強制更新標記
+      setTimeout(() => {
+        forceMapUpdate.value = false;
+      }, 100);
+    }
+  } catch (error) {
+    addDebugLog("error", "Failed to update map center", { address, error: error.message });
+  }
 }
 
 function deleteAddress(address, index) {
@@ -215,9 +290,6 @@ function goAddAddress() {
   router.push("/add-address");
 }
 
-function goBack() {
-  router.back();
-}
 
 // Listen for address updates from AddAddressPage
 function handleAddressAdded() {
@@ -226,7 +298,7 @@ function handleAddressAdded() {
 }
 
 // Load addresses from localStorage on mount
-function loadAddresses() {
+async function loadAddresses() {
   const savedAddresses = localStorage.getItem("foodSafetyAddresses");
   const savedSelected = localStorage.getItem("foodSafetySelectedAddress");
   if (savedAddresses) {
@@ -235,9 +307,41 @@ function loadAddresses() {
       addressList.value = parsed;
       if (savedSelected && parsed.includes(savedSelected)) {
         selectedAddress.value = savedSelected;
+        // 更新地圖中心
+        try {
+          const coordinates = await geocodeAddress(savedSelected);
+          if (coordinates) {
+            forceMapUpdate.value = true;
+            mapCenter.value = coordinates;
+            setTimeout(() => {
+              forceMapUpdate.value = false;
+            }, 100);
+          }
+        } catch (error) {
+          addDebugLog("error", "Failed to geocode saved address", {
+            address: savedSelected,
+            error: error.message,
+          });
+        }
       } else if (parsed.length > 0) {
         selectedAddress.value = parsed[0];
         localStorage.setItem("foodSafetySelectedAddress", parsed[0]);
+        // 更新地圖中心
+        try {
+          const coordinates = await geocodeAddress(parsed[0]);
+          if (coordinates) {
+            forceMapUpdate.value = true;
+            mapCenter.value = coordinates;
+            setTimeout(() => {
+              forceMapUpdate.value = false;
+            }, 100);
+          }
+        } catch (error) {
+          addDebugLog("error", "Failed to geocode first address", {
+            address: parsed[0],
+            error: error.message,
+          });
+        }
       }
     }
   }
@@ -248,7 +352,7 @@ async function initializeAddresses() {
   // 檢查是否在App環境中
   const isInApp = initFlutterBridge();
   if (!isInApp) {
-    console.log("Not running in app, using localStorage addresses only");
+    addDebugLog('log', "Not running in app, using localStorage addresses only");
     loadAddresses();
     return;
   }
@@ -259,7 +363,7 @@ async function initializeAddresses() {
 
   // 1. 獲取當前位置並轉換為地址
   try {
-    console.log("Getting current location...");
+    addDebugLog('log', "Getting current location...");
     const currentLocationAddress = await getCurrentLocationAddress();
     if (currentLocationAddress && currentLocationAddress.trim()) {
       newAddresses.push({
@@ -268,15 +372,15 @@ async function initializeAddresses() {
         isDefault: true
       });
       existingAddresses.add(currentLocationAddress.trim());
-      console.log("Current location address:", currentLocationAddress);
+      addDebugLog('log', "Current location address", { address: currentLocationAddress });
     }
   } catch (error) {
-    console.error("Failed to get current location:", error);
+    addDebugLog('error', "Failed to get current location", { error: error.message });
   }
 
   // 2. 獲取用戶的residentAddress
   try {
-    console.log("Getting user info...");
+    addDebugLog('log', "Getting user info...");
     const userInfo = await getUserInfo();
     if (userInfo && userInfo.residentAddress && userInfo.residentAddress.trim()) {
       const residentAddress = userInfo.residentAddress.trim();
@@ -287,11 +391,11 @@ async function initializeAddresses() {
           isDefault: false
         });
         existingAddresses.add(residentAddress);
-        console.log("User resident address:", residentAddress);
+        addDebugLog('log', "User resident address", { address: residentAddress });
       }
     }
   } catch (error) {
-    console.error("Failed to get user info:", error);
+    addDebugLog('error', "Failed to get user info", { error: error.message });
   }
 
   // 3. 加載已保存的地址
@@ -312,7 +416,7 @@ async function initializeAddresses() {
         });
       }
     } catch (error) {
-      console.error("Failed to parse saved addresses:", error);
+      addDebugLog("error", "Failed to parse saved addresses", { error: error.message });
     }
   }
 
@@ -326,6 +430,24 @@ async function initializeAddresses() {
     if (defaultItem) {
       selectedAddress.value = defaultItem.address;
       localStorage.setItem("foodSafetySelectedAddress", defaultItem.address);
+      
+      // 更新地圖中心到默認地址
+      try {
+        const coordinates = await geocodeAddress(defaultItem.address);
+        if (coordinates) {
+          forceMapUpdate.value = true;
+          mapCenter.value = coordinates;
+          // 延遲重置，確保地圖有時間更新
+          setTimeout(() => {
+            forceMapUpdate.value = false;
+          }, 200);
+        }
+      } catch (error) {
+        addDebugLog("error", "Failed to geocode default address", { 
+          address: defaultItem.address, 
+          error: error.message 
+        });
+      }
     }
 
     // 保存到localStorage
@@ -347,11 +469,26 @@ function handleClickOutside(event) {
   }
 }
 
+// 標記是否已初始化
+const isInitialized = ref(false);
+
 onMounted(async () => {
-  // 初始化Flutter Bridge並獲取地址
-  await initializeAddresses();
+  if (!isInitialized.value) {
+    // 初始化Flutter Bridge並獲取地址
+    await initializeAddresses();
+    // 載入稽查資料點（只在首次掛載時載入）
+    await loadInspectionMarkers();
+    isInitialized.value = true;
+  }
   document.addEventListener("click", handleClickOutside);
   window.addEventListener("address-added", handleAddressAdded);
+});
+
+// 當組件被 keep-alive 激活時
+onActivated(() => {
+  // 組件從其他頁面返回時，不需要重新載入數據
+  // 地圖狀態會自動從 sessionStorage 恢復
+  addDebugLog("log", "FoodSafetyWebView activated");
 });
 
 onUnmounted(() => {
@@ -372,60 +509,31 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* AppBar */
-.app-bar {
-  background-color: var(--primary-500);
-  box-shadow: 0 2px 8px rgba(11, 13, 14, 0.08);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  height: 56px;
-  position: relative;
-}
-
-.app-bar-left {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-}
-
-.app-bar-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--white);
-  margin: 0;
-  text-align: center;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: none;
-  max-width: calc(100% - 200px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.app-bar-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-shrink: 0;
-}
-
-.app-bar-button {
-  background: none;
-  border: none;
-  cursor: pointer;
+/* Action Icon Button */
+.action-icon-button {
+  background-color: var(--white);
+  border: 1px solid var(--grayscale-200);
+  border-radius: 8px;
   padding: 8px;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--white);
+  color: var(--primary-500);
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
+  flex-shrink: 0;
 }
 
-.app-bar-button .material-icons {
+.action-icon-button:hover {
+  background-color: var(--primary-50);
+}
+
+.action-icon-button:active {
+  background-color: var(--primary-100);
+}
+
+.action-icon-button .material-icons {
   font-size: 20px;
 }
 
@@ -445,7 +553,38 @@ onUnmounted(() => {
   position: relative;
 }
 
+/* Address Section Overlay on Map */
+.address-section--overlay {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  margin-bottom: 0;
+  z-index: 1000;
+  pointer-events: none;
+}
+
+/* 地址選擇器內的按鈕和卡片需要可點擊 */
+.address-section--overlay .address-card,
+.address-section--overlay .action-icon-button,
+.address-section--overlay .address-dropdown {
+  pointer-events: auto;
+}
+
+.address-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.address-icons {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .address-card {
+  flex: 1;
   background-color: var(--white);
   border: 1px solid var(--grayscale-200);
   border-radius: 8px;
@@ -453,10 +592,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
+  box-shadow: 0 2px 8px rgba(11, 13, 14, 0.15);
   cursor: pointer;
   transition: background-color 0.2s;
   user-select: none;
+  position: relative;
+  z-index: 1;
 }
 
 .address-card:hover {
@@ -500,10 +641,11 @@ onUnmounted(() => {
   border: 1px solid var(--grayscale-200);
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(11, 13, 14, 0.15);
-  z-index: 100;
+  z-index: 1001;
   overflow: hidden;
   max-height: calc(100vh - 200px);
   overflow-y: auto;
+  pointer-events: auto;
 }
 
 .address-dropdown-item {
@@ -558,6 +700,8 @@ onUnmounted(() => {
 .address-dropdown-item--add {
   border-top: 1px solid var(--grayscale-100);
   color: var(--primary-500);
+  justify-content: center;
+  gap: 8px;
 }
 
 .address-dropdown-item--add .material-icons {
@@ -566,30 +710,21 @@ onUnmounted(() => {
 
 /* Map Section */
 .map-section {
-  margin-bottom: 4px;
-}
-
-.map-placeholder {
   width: 100%;
-  height: 208px;
-  background-color: var(--grayscale-100);
+  aspect-ratio: 1 / 1;
+  margin-bottom: 4px;
   border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
+  overflow: visible;
+  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
+  position: relative;
 }
 
-.map-icon {
-  font-size: 48px;
-  color: var(--grayscale-400);
-}
-
-.map-text {
-  font-size: 16px;
-  color: var(--grayscale-500);
-  margin: 0;
+/* 地圖容器本身需要 overflow hidden，但外層容器需要 visible 以顯示覆蓋層 */
+.map-section :deep(.map-container) {
+  border-radius: 12px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
 }
 
 /* Action Buttons */
@@ -603,29 +738,27 @@ onUnmounted(() => {
   flex: 1;
   padding: 14px 24px;
   background-color: var(--white);
-  border: 1px solid var(--grayscale-200);
+  border: 1px solid var(--primary-500);
   border-radius: 8px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--grayscale-700);
+  color: var(--primary-500);
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
 }
 
 .action-button:hover {
-  background-color: var(--grayscale-50);
+  background-color: var(--primary-50);
 }
 
 .action-button--active {
-  background-color: var(--primary-500);
+  background-color: var(--white);
   border-color: var(--primary-500);
-  color: var(--white);
-  box-shadow: 0 2px 4px rgba(90, 180, 197, 0.3);
+  color: var(--primary-500);
 }
 
 .action-button--active:hover {
-  background-color: var(--primary-600);
+  background-color: var(--primary-50);
 }
 
 /* News Section */

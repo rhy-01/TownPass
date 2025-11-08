@@ -8,13 +8,13 @@ import NightMarketPage from "@/views/NightMarketPage.vue";
 import ReceiptPage from "@/views/ReceiptPage.vue";
 
 const routes = [
-  { path: "/", component: FoodSafetyWebView },
-  { path: "/activities", component: FoodSafetyActivityView },
-  { path: "/add-address", component: AddAddressPage },
-  { path: "/store", component: StorePage },
-  { path: "/notification", component: NotificationPage },
-  { path: "/night-market", component: NightMarketPage },
-  { path: "/receipt", component: ReceiptPage },
+  { path: "/", name: "FoodSafetyWebView", component: FoodSafetyWebView },
+  { path: "/activities", name: "FoodSafetyActivityView", component: FoodSafetyActivityView },
+  { path: "/add-address", name: "AddAddressPage", component: AddAddressPage },
+  { path: "/store", name: "StorePage", component: StorePage },
+  { path: "/notification", name: "NotificationPage", component: NotificationPage },
+  { path: "/night-market", name: "NightMarketPage", component: NightMarketPage },
+  { path: "/receipt", name: "ReceiptPage", component: ReceiptPage },
 ];
 
 const router = createRouter({

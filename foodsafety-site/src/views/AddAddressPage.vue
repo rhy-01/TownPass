@@ -2,11 +2,16 @@
   <div class="add-address-page">
     <!-- AppBar -->
     <header class="app-bar">
-      <button @click="goBack" class="back-button">
+      <button
+        class="back-button"
+        @click="goBack"
+      >
         <span class="material-icons">arrow_back</span>
       </button>
-      <h1 class="app-bar-title">新增地址</h1>
-      <div class="app-bar-spacer"></div>
+      <h1 class="app-bar-title">
+        新增地址
+      </h1>
+      <div class="app-bar-spacer" />
     </header>
 
     <!-- Content -->
@@ -20,14 +25,14 @@
             placeholder="請輸入地址"
             class="input-field"
             @keyup.enter="saveAddress"
-          />
+          >
         </div>
 
         <button
-          @click="saveAddress"
           class="save-button"
           :class="{ 'save-button--disabled': !address.trim() }"
           :disabled="!address.trim()"
+          @click="saveAddress"
         >
           儲存
         </button>
