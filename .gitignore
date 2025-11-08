@@ -142,6 +142,9 @@ foodsafety-site/.env
 foodsafety-site/.env.local
 foodsafety-site/.env.*.local
 
+# Backend Node.js projects
+backend/**/node_modules/
+
 # Keep PDF source files but ignore processed files
 # Output files
 backend/夜市食安微笑標章獲頒名單/*.json
