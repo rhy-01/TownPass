@@ -1,0 +1,8 @@
+# PDF Processing
+pypdf>=4.0.0
+
+# Data Processing (built-in Python libraries, listed for documentation)
+# re - Regular expressions
+# json - JSON processing
+# csv - CSV file handling
+# os - Operating system interface
