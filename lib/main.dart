@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/firebase_options.dart';
@@ -30,6 +31,14 @@ const _transparentStatusBar = SystemUiOverlayStyle(
 /// 注意：這個函數會在單獨的 isolate 中運行，不能訪問 GetX 服務或其他應用程式狀態
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // 在背景 isolate 中也載入 .env 文件
+  try {
+    await dotenv.load(fileName: '.env');
+  } catch (e) {
+    print('⚠️  背景處理器無法載入 .env 文件: $e');
+    // 繼續執行，將使用預設值
+  }
+  
   // 必須先初始化 Firebase（在背景 isolate 中）
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -151,6 +160,15 @@ Future<void> _showBackgroundNotification(String title, String body) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // 載入 .env 文件
+  try {
+    await dotenv.load(fileName: '.env');
+    print('✅ .env 文件載入成功');
+  } catch (e) {
+    print('⚠️  無法載入 .env 文件: $e');
+    print('將使用預設的 Firebase 配置值');
+  }
   
   // 重要：必須在任何 Firebase 操作之前註冊背景訊息處理器
   // 這樣當應用程式關閉時，FCM 訊息仍能被處理

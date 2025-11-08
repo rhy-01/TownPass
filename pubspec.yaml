@@ -39,6 +39,7 @@ dependencies:
   firebase_messaging: ^15.1.3
   flutter:
     sdk: flutter
+  flutter_dotenv: ^5.1.0
   flutter_inappwebview: ^6.0.0
   flutter_local_notifications: ^17.2.3
   flutter_native_splash: ^2.4.1
@@ -97,6 +98,7 @@ flutter:
     - assets/mock_data/
     - assets/image/
     - assets/svg/
+    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/assets-and-images/#resolution-aware

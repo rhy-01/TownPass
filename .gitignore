@@ -131,6 +131,11 @@ ENV/
 # Backup folder
 backup/
 
+# Environment variables
+.env
+.env.local
+.env.*.local
+
 # Keep PDF source files but ignore processed files
 # Output files (optional - remove these lines if you want to track output)
 backend/夜市食安微笑標章獲頒名單/*.json

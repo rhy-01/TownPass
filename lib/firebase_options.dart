@@ -1,10 +1,13 @@
 // File generated from google-services.json for Firebase initialization
+// 現在從 .env 文件讀取配置
 
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
+/// 從 .env 文件讀取配置值
 ///
 /// Example:
 /// ```dart
@@ -52,13 +55,29 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDWW0pJe3w6VT4trEJsTlGgPzd6HymtlFE',
-    appId: '1:745797496080:android:e86db6c434affd63a50995',
-    messagingSenderId: '745797496080',
-    projectId: 'micro-service-477116',
-    storageBucket: 'micro-service-477116.firebasestorage.app',
-  );
+  /// 從 .env 文件讀取 Firebase 配置
+  /// 如果 .env 中沒有值，則使用預設值（從 google-services.json）
+  static FirebaseOptions get android {
+    // 從 .env 讀取，如果沒有則使用預設值
+    final apiKey = dotenv.env['FIREBASE_API_KEY'] ?? 
+        'AIzaSyDWW0pJe3w6VT4trEJsTlGgPzd6HymtlFE';
+    final appId = dotenv.env['FIREBASE_APP_ID'] ?? 
+        '1:745797496080:android:e86db6c434affd63a50995';
+    final messagingSenderId = dotenv.env['FIREBASE_MESSAGING_SENDER_ID'] ?? 
+        '745797496080';
+    final projectId = dotenv.env['FIREBASE_PROJECT_ID'] ?? 
+        'micro-service-477116';
+    final storageBucket = dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? 
+        'micro-service-477116.firebasestorage.app';
+
+    return FirebaseOptions(
+      apiKey: apiKey,
+      appId: appId,
+      messagingSenderId: messagingSenderId,
+      projectId: projectId,
+      storageBucket: storageBucket,
+    );
+  }
 }
 
 
