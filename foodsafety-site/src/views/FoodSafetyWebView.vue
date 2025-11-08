@@ -61,7 +61,7 @@
               <button
                 class="address-delete-button"
                 :aria-label="`刪除地址 ${address}`"
-                @click.stop="deleteAddress(address, index)"
+                @click.stop="deleteAddress(address)"
               >
                 <span class="material-icons">delete</span>
               </button>
@@ -152,15 +152,17 @@
 <script setup>
 import { ref, onMounted, onUnmounted, onActivated } from "vue";
 import { useRouter } from "vue-router";
-import { 
-  initFlutterBridge, 
-  getCurrentLocationAddress, 
-  getUserInfo 
-} from "@/utils/flutterBridge";
 import { addDebugLog } from "@/utils/debugLogger";
 import GoogleMap from "@/components/GoogleMap.vue";
 import { geocodeAddress } from "@/utils/geocode";
 import { getUnsafeLocations } from "@/utils/api";
+import {
+  initializeFavoriteLocations,
+  getAllAddresses,
+  addAddress,
+  removeAddress,
+  setSelectedAddress,
+} from "@/utils/favoriteLocation";
 
 const router = useRouter();
 
@@ -206,8 +208,8 @@ function toggleDropdown() {
 async function selectAddress(address) {
   selectedAddress.value = address;
   showDropdown.value = false;
-  // Save selected address to localStorage
-  localStorage.setItem("foodSafetySelectedAddress", address);
+  // Save selected address using favoriteLocation utility
+  setSelectedAddress(address);
   
   // 更新地圖中心到選中的地址
   try {
@@ -228,25 +230,23 @@ async function selectAddress(address) {
   }
 }
 
-function deleteAddress(address, index) {
+function deleteAddress(address) {
   if (confirm(`確定要刪除地址「${address}」嗎？`)) {
-    // Remove from list
-    addressList.value.splice(index, 1);
-    // Update localStorage
-    if (addressList.value.length > 0) {
-      localStorage.setItem("foodSafetyAddresses", JSON.stringify(addressList.value));
-    } else {
-      localStorage.removeItem("foodSafetyAddresses");
-    }
+    // Remove address using favoriteLocation utility
+    removeAddress(address);
+    
+    // Update local state
+    addressList.value = getAllAddresses();
+    
     // If deleted address was selected, select first available address
     if (selectedAddress.value === address) {
-      if (addressList.value.length > 0) {
-        selectedAddress.value = addressList.value[0];
-        localStorage.setItem("foodSafetySelectedAddress", addressList.value[0]);
+      const updatedAddresses = getAllAddresses();
+      if (updatedAddresses.length > 0) {
+        selectedAddress.value = updatedAddresses[0];
+        setSelectedAddress(updatedAddresses[0]);
       } else {
         // If no addresses left, set a default or empty message
         selectedAddress.value = "請新增地址";
-        localStorage.removeItem("foodSafetySelectedAddress");
       }
     }
   }
@@ -297,167 +297,117 @@ function handleAddressAdded() {
   loadAddresses();
 }
 
-// Load addresses from localStorage on mount
+// Load addresses from favorite_location.json and localStorage
 async function loadAddresses() {
-  const savedAddresses = localStorage.getItem("foodSafetyAddresses");
-  const savedSelected = localStorage.getItem("foodSafetySelectedAddress");
-  if (savedAddresses) {
-    const parsed = JSON.parse(savedAddresses);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      addressList.value = parsed;
-      if (savedSelected && parsed.includes(savedSelected)) {
-        selectedAddress.value = savedSelected;
-        // 更新地圖中心
-        try {
-          const coordinates = await geocodeAddress(savedSelected);
-          if (coordinates) {
-            forceMapUpdate.value = true;
-            mapCenter.value = coordinates;
-            setTimeout(() => {
-              forceMapUpdate.value = false;
-            }, 100);
-          }
-        } catch (error) {
-          addDebugLog("error", "Failed to geocode saved address", {
-            address: savedSelected,
-            error: error.message,
-          });
+  // Initialize favorite locations (loads from JSON and merges with localStorage)
+  const { addresses, selectedAddress: savedSelected } = initializeFavoriteLocations();
+  
+  if (addresses && addresses.length > 0) {
+    addressList.value = addresses;
+    
+    if (savedSelected && addresses.includes(savedSelected)) {
+      selectedAddress.value = savedSelected;
+      // 更新地圖中心
+      try {
+        const coordinates = await geocodeAddress(savedSelected);
+        if (coordinates) {
+          forceMapUpdate.value = true;
+          mapCenter.value = coordinates;
+          setTimeout(() => {
+            forceMapUpdate.value = false;
+          }, 100);
         }
-      } else if (parsed.length > 0) {
-        selectedAddress.value = parsed[0];
-        localStorage.setItem("foodSafetySelectedAddress", parsed[0]);
-        // 更新地圖中心
-        try {
-          const coordinates = await geocodeAddress(parsed[0]);
-          if (coordinates) {
-            forceMapUpdate.value = true;
-            mapCenter.value = coordinates;
-            setTimeout(() => {
-              forceMapUpdate.value = false;
-            }, 100);
-          }
-        } catch (error) {
-          addDebugLog("error", "Failed to geocode first address", {
-            address: parsed[0],
-            error: error.message,
-          });
+      } catch (error) {
+        addDebugLog("error", "Failed to geocode saved address", {
+          address: savedSelected,
+          error: error.message,
+        });
+      }
+    } else if (addresses.length > 0) {
+      selectedAddress.value = addresses[0];
+      setSelectedAddress(addresses[0]);
+      // 更新地圖中心
+      try {
+        const coordinates = await geocodeAddress(addresses[0]);
+        if (coordinates) {
+          forceMapUpdate.value = true;
+          mapCenter.value = coordinates;
+          setTimeout(() => {
+            forceMapUpdate.value = false;
+          }, 100);
         }
+      } catch (error) {
+        addDebugLog("error", "Failed to geocode first address", {
+          address: addresses[0],
+          error: error.message,
+        });
       }
     }
   }
 }
 
-// 初始化地址：獲取當前位置和用戶地址
-async function initializeAddresses() {
-  // 檢查是否在App環境中
-  const isInApp = initFlutterBridge();
-  if (!isInApp) {
-    addDebugLog('log', "Not running in app, using localStorage addresses only");
-    loadAddresses();
+// 接收 Flutter 傳遞的定位地址
+function receiveLocationAddress(address) {
+  if (!address || !address.trim()) {
+    addDebugLog('warn', "Received empty address from Flutter");
     return;
   }
 
-  isLoadingLocation.value = true;
-  const newAddresses = [];
-  const existingAddresses = new Set();
-
-  // 1. 獲取當前位置並轉換為地址
-  try {
-    addDebugLog('log', "Getting current location...");
-    const currentLocationAddress = await getCurrentLocationAddress();
-    if (currentLocationAddress && currentLocationAddress.trim()) {
-      newAddresses.push({
-        address: currentLocationAddress.trim(),
-        source: "location",
-        isDefault: true
-      });
-      existingAddresses.add(currentLocationAddress.trim());
-      addDebugLog('log', "Current location address", { address: currentLocationAddress });
-    }
-  } catch (error) {
-    addDebugLog('error', "Failed to get current location", { error: error.message });
-  }
-
-  // 2. 獲取用戶的residentAddress
-  try {
-    addDebugLog('log', "Getting user info...");
-    const userInfo = await getUserInfo();
-    if (userInfo && userInfo.residentAddress && userInfo.residentAddress.trim()) {
-      const residentAddress = userInfo.residentAddress.trim();
-      if (!existingAddresses.has(residentAddress)) {
-        newAddresses.push({
-          address: residentAddress,
-          source: "userinfo",
-          isDefault: false
-        });
-        existingAddresses.add(residentAddress);
-        addDebugLog('log', "User resident address", { address: residentAddress });
-      }
-    }
-  } catch (error) {
-    addDebugLog('error', "Failed to get user info", { error: error.message });
-  }
-
-  // 3. 加載已保存的地址
-  const savedAddresses = localStorage.getItem("foodSafetyAddresses");
-  if (savedAddresses) {
-    try {
-      const parsed = JSON.parse(savedAddresses);
-      if (Array.isArray(parsed)) {
-        parsed.forEach(addr => {
-          if (typeof addr === 'string' && addr.trim() && !existingAddresses.has(addr.trim())) {
-            newAddresses.push({
-              address: addr.trim(),
-              source: "saved",
-              isDefault: false
-            });
-            existingAddresses.add(addr.trim());
-          }
-        });
-      }
-    } catch (error) {
-      addDebugLog("error", "Failed to parse saved addresses", { error: error.message });
-    }
-  }
-
-  // 4. 更新地址列表
-  if (newAddresses.length > 0) {
-    // 將地址轉換為字符串數組
-    addressList.value = newAddresses.map(item => item.address);
-    
-    // 設置默認地址（優先使用當前位置）
-    const defaultItem = newAddresses.find(item => item.isDefault) || newAddresses[0];
-    if (defaultItem) {
-      selectedAddress.value = defaultItem.address;
-      localStorage.setItem("foodSafetySelectedAddress", defaultItem.address);
-      
-      // 更新地圖中心到默認地址
-      try {
-        const coordinates = await geocodeAddress(defaultItem.address);
-        if (coordinates) {
-          forceMapUpdate.value = true;
-          mapCenter.value = coordinates;
-          // 延遲重置，確保地圖有時間更新
-          setTimeout(() => {
-            forceMapUpdate.value = false;
-          }, 200);
-        }
-      } catch (error) {
-        addDebugLog("error", "Failed to geocode default address", { 
-          address: defaultItem.address, 
-          error: error.message 
-        });
-      }
-    }
-
-    // 保存到localStorage
-    localStorage.setItem("foodSafetyAddresses", JSON.stringify(addressList.value));
-  } else {
-    // 如果沒有獲取到任何地址，使用localStorage中的地址
-    loadAddresses();
-  }
-
+  addDebugLog('log', "Received location address from Flutter", { address });
   isLoadingLocation.value = false;
+
+  // 處理接收到的地址
+  const newAddress = address.trim();
+  const existingAddresses = new Set(getAllAddresses().map(addr => addr.trim()));
+
+  // 如果地址不存在，添加到地址列表
+  if (!existingAddresses.has(newAddress)) {
+    addAddress(newAddress, true); // 設置為選中
+    addressList.value = getAllAddresses();
+  }
+
+  // 設置為選中地址
+  selectedAddress.value = newAddress;
+  setSelectedAddress(newAddress);
+
+  // 更新地圖中心
+  geocodeAddress(newAddress).then(coordinates => {
+    if (coordinates) {
+      forceMapUpdate.value = true;
+      mapCenter.value = coordinates;
+      setTimeout(() => {
+        forceMapUpdate.value = false;
+      }, 200);
+    }
+  }).catch(error => {
+    addDebugLog("error", "Failed to geocode received address", {
+      address: newAddress,
+      error: error.message
+    });
+  });
+}
+
+// 將 receiveLocationAddress 函數暴露到全局，供 Flutter 調用
+if (typeof window !== 'undefined') {
+  window.receiveLocationAddress = receiveLocationAddress;
+}
+
+// 初始化地址：從 localStorage 加載已保存的地址
+async function initializeAddresses() {
+  isLoadingLocation.value = true;
+  
+  // 先加載已保存的地址
+  loadAddresses();
+  
+  // 等待 Flutter 傳遞定位地址（如果有的話）
+  // Flutter 會在頁面加載完成後自動調用 receiveLocationAddress
+  // 這裡設置一個超時，如果 Flutter 沒有傳遞地址，就使用已保存的地址
+  setTimeout(() => {
+    if (isLoadingLocation.value) {
+      isLoadingLocation.value = false;
+      addDebugLog('log', "Location address not received from Flutter, using saved addresses");
+    }
+  }, 3000);
 }
 
 // Close dropdown when clicking outside

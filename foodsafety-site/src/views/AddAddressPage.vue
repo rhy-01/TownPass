@@ -44,6 +44,7 @@
 <script setup>
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { addAddress } from "@/utils/favoriteLocation";
 
 const router = useRouter();
 const address = ref("");
@@ -51,13 +52,8 @@ const address = ref("");
 function saveAddress() {
   if (address.value.trim()) {
     const newAddress = address.value.trim();
-    // Save to localStorage first
-    const savedAddresses = JSON.parse(localStorage.getItem("foodSafetyAddresses") || "[]");
-    if (!savedAddresses.includes(newAddress)) {
-      savedAddresses.push(newAddress);
-      localStorage.setItem("foodSafetyAddresses", JSON.stringify(savedAddresses));
-      localStorage.setItem("foodSafetySelectedAddress", newAddress);
-    }
+    // Save address using favoriteLocation utility and set as selected
+    addAddress(newAddress, true);
     // Emit custom event to notify parent component
     const event = new CustomEvent("address-added", {
       detail: newAddress,

@@ -322,12 +322,6 @@ export async function reverseGeocode(lat, lng) {
   console.log('[Two-Way Connection] 🗺️ 反向地理編碼:', { lat, lng });
   try {
     // 使用 Nominatim (OpenStreetMap) - 免費的逆地理編碼服務
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=zh-TW,zh,en`,
-      {
-        headers: {
-          'User-Agent': 'TownPass-FoodSafety/1.0'
-        }
     // 這裡可以使用Google Maps Geocoding API或其他服務
     // 由於需要API key，我們先使用一個簡單的實現
     // 實際應用中應該使用真實的geocoding服務

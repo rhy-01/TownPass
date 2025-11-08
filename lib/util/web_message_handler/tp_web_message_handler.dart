@@ -2,12 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/device_service.dart';
-import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/service/subscription_service.dart';
@@ -165,32 +163,6 @@ class PhoneCallMessageHandler extends TPWebMessageHandler {
     if (canLaunch) {
       await launchUrl(uri);
     }
-  }
-}
-
-class LocationMessageHandler extends TPWebMessageHandler {
-  @override
-  String get name => 'location';
-
-  @override
-  handle({
-    required Object? message,
-    required WebUri? sourceOrigin,
-    required bool isMainFrame,
-    required Function(WebMessage reply)? onReply,
-  }) async {
-    Position? position;
-
-    // might have permission issue
-    try {
-      position = await Get.find<GeoLocatorService>().position();
-    } catch (error) {
-      printError(info: error.toString());
-    }
-
-    onReply?.call(replyWebMessage(
-      data: position?.toJson() ?? [],
-    ));
   }
 }
 

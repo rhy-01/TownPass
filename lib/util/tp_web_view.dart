@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/service/geo_locator_service.dart';
+import 'package:town_pass/service/geocoding_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/web_message_handler/tp_web_message_listener.dart';
@@ -45,6 +47,54 @@ class TPWebView extends StatelessWidget {
   final Rxn<InAppWebViewController> webViewController = Rxn<InAppWebViewController>();
 
   final RxBool canGoBack = RxBool(false);
+
+  /// 為 foodsafety 頁面獲取定位並轉換為地址
+  Future<void> _handleLocationForFoodSafety(InAppWebViewController controller) async {
+    try {
+      // 獲取定位
+      final geoLocatorService = Get.find<GeoLocatorService>();
+      final position = await geoLocatorService.position();
+
+      // 將經緯度轉換為地址
+      final geocodingService = Get.find<GeocodingService>();
+      final address = await geocodingService.reverseGeocode(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (address != null && address.isNotEmpty) {
+        // 通過 JavaScript 注入將地址傳遞給 Web 端
+        // 轉義 JavaScript 字符串中的特殊字符
+        final escapedAddress = address
+            .replaceAll('\\', '\\\\')
+            .replaceAll("'", "\\'")
+            .replaceAll('"', '\\"')
+            .replaceAll('\n', '\\n')
+            .replaceAll('\r', '\\r');
+
+        final script = '''
+          (function() {
+            // 檢查是否有接收地址的函數
+            if (typeof window.receiveLocationAddress === 'function') {
+              window.receiveLocationAddress('$escapedAddress');
+            } else {
+              // 如果函數還未定義，等待一下再嘗試
+              setTimeout(function() {
+                if (typeof window.receiveLocationAddress === 'function') {
+                  window.receiveLocationAddress('$escapedAddress');
+                }
+              }, 500);
+            }
+          })();
+        ''';
+
+        await controller.evaluateJavascript(source: script);
+      }
+    } catch (error) {
+      // 定位失敗時不顯示錯誤，靜默處理
+      print('獲取定位失敗: $error');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +143,13 @@ class TPWebView extends StatelessWidget {
             true => title,
             false => forceTitle,
           };
+        },
+        onLoadStop: (controller, url) async {
+          // 檢查是否為 foodsafety 相關頁面
+          final urlString = url?.toString() ?? '';
+          if (urlString.contains('foodsafety') || urlString.contains('food-safety')) {
+            await _handleLocationForFoodSafety(controller);
+          }
         },
         onGeolocationPermissionsShowPrompt: (controller, origin) async {
           // should be deal individually (ask for user agreement)
