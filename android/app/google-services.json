@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "745797496080",
+    "project_id": "micro-service-477116",
+    "storage_bucket": "micro-service-477116.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:745797496080:android:e86db6c434affd63a50995",
+        "android_client_info": {
+          "package_name": "com.example.townpass"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC9qIC2Guy1ji2qNNJSGNn13k4nlfhBmDM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
