@@ -18,27 +18,43 @@ class FcmService extends GetxService {
 
   Future<FcmService> init() async {
     try {
-      // 初始化 Firebase
-      // 注意：背景訊息處理器應該在 main() 函數中註冊，而不是在這裡
-      // 因為背景處理器必須在應用程式啟動時就註冊
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-      
+      // 檢查 Firebase 是否已經初始化
+      // 如果已經初始化（例如在 Android 端自動初始化或在 main() 中初始化），就不需要再次初始化
+      if (Firebase.apps.isEmpty) {
+        print('🔄 FcmService: 初始化 Firebase...');
+        try {
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+          print('✅ FcmService: Firebase 初始化成功');
+        } catch (e) {
+          // 檢查是否為重複初始化錯誤
+          if (e.toString().contains('duplicate-app') || e.toString().contains('already exists')) {
+            print('✅ FcmService: Firebase 已經存在（可能在其他地方已初始化），繼續執行');
+          } else {
+            // 其他錯誤，重新拋出
+            print('❌ FcmService: Firebase 初始化失敗: $e');
+            rethrow;
+          }
+        }
+      } else {
+        print('✅ FcmService: Firebase 已經初始化（${Firebase.apps.length} 個應用），跳過初始化步驟');
+      }
+
       _firebaseMessaging = FirebaseMessaging.instance;
-      
+
       // 請求通知權限
       await _requestPermission();
-      
+
       // 設置訊息處理器
       _setupMessageHandlers();
-      
+
       // 獲取並保存 FCM Token
       await _getFcmToken();
-      
+
       // 監聽 token 刷新
       _firebaseMessaging!.onTokenRefresh.listen(_onTokenRefresh);
-      
+
       return this;
     } catch (e) {
       print('FCM Service initialization error: $e');
@@ -54,7 +70,7 @@ class FcmService extends GetxService {
         badge: true,
         sound: true,
       );
-      
+
       if (settings.authorizationStatus != AuthorizationStatus.authorized) {
         print('User declined or has not accepted notification permissions');
       }
@@ -87,35 +103,76 @@ class FcmService extends GetxService {
   /// 處理接收到的訊息
   void _handleMessage(RemoteMessage message) {
     final data = message.data;
+    final notification = message.notification;
 
     // 輸出訊息詳情
     print('=== 前景訊息處理器被觸發 ===');
     print('訊息數據: $data');
+    print('通知標題: ${notification?.title}');
+    print('通知內容: ${notification?.body}');
 
-    // 決策邏輯：檢查 title 欄位是否為 '1'
-    final title = data['title'];
+    // 從 data 字段讀取餐廳資訊（匹配 Python 後端發送的格式）
+    final restaurantName = data['restaurant_name']?.toString();
+    final regNo = data['restaurant_reg_no']?.toString();
+    final lat = data['restaurant_latitude']?.toString();
+    final lng = data['restaurant_longitude']?.toString();
+    final status = data['restaurant_status']?.toString();
+    final type = data['type']?.toString();
+    // targetUrl 和 timestamp 保留供將來使用（例如導航到餐廳詳情頁）
+    final targetUrl = data['targetUrl']?.toString();
+    final timestamp = data['timestamp']?.toString();
     
-    // 輸出接收到的 title
-    print('接收到的 title: $title');
+    // 獲取 title 和 body（優先從 notification，否則從 data）
+    String? title;
+    String? body;
     
-    // 如果 title 是 '1'，就發出通知
-    if (title == '1') {
-      print('✅ title 是 "1"，將顯示通知');
-      
-      // 獲取通知內容（使用 body 作為通知內容）
-      final notificationBody = data['body'] ?? '通知';
-      
-      // 顯示通知
-      NotificationService.showNotification(
-        title: '通知',
-        content: notificationBody,
-      );
-      
-      print('通知已顯示');
+    if (notification?.title != null) {
+      title = notification!.title;
+      body = notification.body;
+    } else if (data.containsKey('title')) {
+      title = data['title']?.toString();
+      body = data['body']?.toString();
+    }
+    
+    print('📋 接收到的 FCM 訊息：');
+    print('  餐廳名稱: $restaurantName');
+    print('  登記號碼: $regNo');
+    print('  經緯度: ($lat, $lng)');
+    print('  狀態: $status');
+    print('  類型: $type');
+    print('  目標 URL: $targetUrl');
+    print('  時間戳: $timestamp');
+    print('  標題: $title');
+    print('  內容: $body');
+
+    // 檢查是否有經緯度（必要條件）
+    if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
+      // 如果有經緯度，就顯示通知（無論 title 是否包含"不合格"）
+      // 因為 Python 後端已經過濾了，只有不合格的才會發送
+      if (title != null && title.isNotEmpty) {
+        print('✅ 有經緯度且 title，將顯示通知');
+        print('標題: $title');
+        print('內容: ${body ?? "無內容"}');
+        print('餐廳: $restaurantName');
+        print('經緯度: ($lat, $lng)');
+        
+        // 顯示通知
+        NotificationService.showNotification(
+          title: title,
+          content: body ?? '您有新的通知',
+        );
+        
+        print('通知已顯示');
+      } else {
+        print('ℹ️  有經緯度但沒有 title，只輸出日志');
+        print('完整訊息數據: $data');
+      }
     } else {
-      // 如果 title 不是 '1'，就只在 log 輸出
-      print('❌ title 不是 "1" ($title)，只輸出日志，不顯示通知');
-      print('完整數據: $data');
+      print('⚠️  沒有經緯度或經緯度為空，只輸出日志');
+      print('完整訊息數據: $data');
+      if (notification != null) {
+        print('通知對象: $notification');
+      }
     }
     
     print('=== 前景訊息處理完成 ===');
@@ -180,4 +237,3 @@ class FcmService extends GetxService {
     }
   }
 }
-

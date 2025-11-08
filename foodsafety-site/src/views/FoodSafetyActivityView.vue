@@ -54,7 +54,6 @@ function goBack() {
 
 <style scoped>
 @import "@/styles/colors.css";
-@import "https://fonts.googleapis.com/icon?family=Material+Icons";
 
 .activity-page {
   min-height: 100vh;
