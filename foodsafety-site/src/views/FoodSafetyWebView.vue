@@ -94,50 +94,6 @@
           夜市
         </button>
       </div>
-
-      <!-- Latest News Section -->
-      <section class="news-section">
-        <div class="news-section-header">
-          <h2 class="news-section-title">
-            最新消息
-          </h2>
-          <button
-            class="news-section-more"
-            @click="goActivity"
-          >
-            更多
-          </button>
-        </div>
-        <div
-          v-if="latestNews.length > 0"
-          class="news-list"
-        >
-          <article
-            v-for="(news, index) in latestNews"
-            :key="index"
-            class="news-card"
-            @click="goActivity"
-          >
-            <div class="news-card-content">
-              <h3 class="news-card-title">
-                {{ news.title }}
-              </h3>
-              <p class="news-card-date">
-                {{ news.date }}
-              </p>
-            </div>
-            <span class="material-icons news-card-arrow">chevron_right</span>
-          </article>
-        </div>
-        <div
-          v-else
-          class="empty-state"
-        >
-          <p class="empty-state-text">
-            目前尚無最新消息
-          </p>
-        </div>
-      </section>
     </main>
 
     <!-- Dropdown Overlay -->
@@ -265,13 +221,6 @@ function goNightMarket() {
   router.push("/night-market");
 }
 
-// Latest news
-const latestNews = ref([
-  { title: "食品安全檢驗報告更新", date: "2025/11/05" },
-  { title: "夜市衛生宣導活動開跑", date: "2025/11/03" },
-  { title: "最新餐廳稽查公告", date: "2025/11/01" },
-]);
-
 // Navigation
 function goNotification() {
   router.push("/notification");
@@ -279,10 +228,6 @@ function goNotification() {
 
 function goReceipt() {
   router.push("/receipt");
-}
-
-function goActivity() {
-  router.push("/activities");
 }
 
 function goAddAddress() {
@@ -451,11 +396,13 @@ onUnmounted(() => {
 @import "@/styles/colors.css";
 
 .food-safety-page {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   background-color: var(--grayscale-50);
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 /* Action Icon Button */
@@ -489,6 +436,7 @@ onUnmounted(() => {
 /* Content */
 .content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
   display: flex;
@@ -660,7 +608,8 @@ onUnmounted(() => {
 /* Map Section */
 .map-section {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  flex: 1;
+  min-height: 0;
   margin-bottom: 4px;
   border-radius: 12px;
   overflow: visible;
@@ -670,6 +619,8 @@ onUnmounted(() => {
 
 /* 地圖容器本身需要 overflow hidden，但外層容器需要 visible 以顯示覆蓋層 */
 .map-section :deep(.map-container) {
+  width: 100%;
+  height: 100%;
   border-radius: 12px;
   overflow: hidden;
   position: relative;
@@ -681,6 +632,7 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
 .action-button {
@@ -708,84 +660,6 @@ onUnmounted(() => {
 
 .action-button--active:hover {
   background-color: var(--primary-50);
-}
-
-/* News Section */
-.news-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.news-section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--grayscale-800);
-  margin: 0;
-}
-
-.news-section-more {
-  background: none;
-  border: none;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--primary-500);
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-card {
-  background-color: var(--white);
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.news-card:active {
-  background-color: var(--primary-50);
-}
-
-.news-card-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.news-card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--grayscale-800);
-  margin: 0;
-}
-
-.news-card-date {
-  font-size: 14px;
-  color: var(--grayscale-500);
-  margin: 0;
-}
-
-.news-card-arrow {
-  font-size: 24px;
-  color: var(--grayscale-400);
-  flex-shrink: 0;
 }
 
 /* Empty State */

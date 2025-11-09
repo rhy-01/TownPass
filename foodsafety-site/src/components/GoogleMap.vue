@@ -43,6 +43,7 @@ const mapContainer = ref(null);
 let map = null;
 let markers = [];
 let markersLayer = null;
+let resizeObserver = null;
 
 // 計算狀態存儲鍵
 const STATE_STORAGE_KEY = computed(() => `mapState_${props.mapId}`);
@@ -225,12 +226,33 @@ async function initMap() {
       stateRestored: !!savedState,
     });
 
+    // 設置 ResizeObserver 監聽容器大小變化
+    if (mapContainer.value && typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        if (map) {
+          // 使用 requestAnimationFrame 確保在下一幀更新
+          requestAnimationFrame(() => {
+            if (map) {
+              map.invalidateSize();
+            }
+          });
+        }
+      });
+      resizeObserver.observe(mapContainer.value);
+    }
+
     // 載入標記
     updateMarkers();
 
     // 監聽地圖載入完成
     map.whenReady(() => {
       addDebugLog("log", "Map tiles loaded");
+      // 確保地圖正確調整大小（特別是使用 flex 布局時）
+      setTimeout(() => {
+        if (map) {
+          map.invalidateSize();
+        }
+      }, 100);
     });
   } catch (error) {
     addDebugLog("error", "Failed to initialize map", {
@@ -408,6 +430,12 @@ onUnmounted(() => {
     map.off("zoomend", saveMapState);
   }
 
+  // 清理 ResizeObserver
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
+
   clearMarkers();
   if (map) {
     map.remove();
@@ -421,7 +449,7 @@ onUnmounted(() => {
 .map-container {
   width: 100%;
   height: 100%;
-  min-height: 300px;
+  min-height: 200px;
   border-radius: 8px;
   overflow: hidden;
   position: relative;
