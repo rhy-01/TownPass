@@ -60,7 +60,7 @@
               v-for="shop in selectedUnqualified"
               :key="shop.name"
               class="shop-card"
-              :class="getCardClass(shop.status)"
+              :class="getCardClass(shop.status, shop.evaluationResult, shop.inspectionStatus)"
             >
               <div class="shop-card-content">
                 <div class="shop-info">
@@ -71,12 +71,16 @@
                     {{ shop.address }}
                   </p>
                 </div>
-                <span 
-                  class="shop-status" 
-                  :class="getStatusClass(shop.status)"
-                >
-                  {{ shop.status }}
-                </span>
+                <div class="shop-status-container">
+                  <span
+                    v-for="(status, index) in getStatusLabels(shop.status, shop.evaluationResult, shop.inspectionStatus)"
+                    :key="index"
+                    class="shop-status" 
+                    :class="getStatusClass(status)"
+                  >
+                    {{ status }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -95,7 +99,7 @@
               v-for="shop in selectedGood"
               :key="shop.name"
               class="shop-card"
-              :class="getCardClass(shop.status)"
+              :class="getCardClass(shop.status, shop.evaluationResult, shop.inspectionStatus)"
             >
               <div class="shop-card-content">
                 <div class="shop-info">
@@ -106,12 +110,16 @@
                     {{ shop.address }}
                   </p>
                 </div>
-                <span 
-                  class="shop-status" 
-                  :class="getStatusClass(shop.status)"
-                >
-                  {{ shop.status }}
-                </span>
+                <div class="shop-status-container">
+                  <span
+                    v-for="(status, index) in getStatusLabels(shop.status, shop.evaluationResult, shop.inspectionStatus)"
+                    :key="index"
+                    class="shop-status" 
+                    :class="getStatusClass(status)"
+                  >
+                    {{ status }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -158,12 +166,30 @@ const shopData = ref({
 const isLoading = ref(false);
 const hasLoadedData = ref(false); // 追蹤是否已成功載入資料
 
-// 判斷是否為優良店家
-function isGoodShop(evaluationResult) {
-  if (!evaluationResult) return false;
+// 判斷是否為優良店家（檢查 evaluationResult 或 inspectionStatus）
+function isGoodShop(evaluationResult, inspectionStatus) {
+  const evalStr = String(evaluationResult || "").trim();
+  const inspectStr = String(inspectionStatus || "").trim();
+  const allStatusText = `${evalStr} ${inspectStr}`.trim();
+  
+  if (!allStatusText) return false;
+  
+  // 優良結果包括：金質、銀質、優良、合格、複查合格
   const goodResults = ["金質", "銀質", "優良", "合格", "複查合格"];
-  const result = String(evaluationResult).toLowerCase();
+  const result = allStatusText.toLowerCase();
   return goodResults.some((good) => result.includes(good.toLowerCase()));
+}
+
+// 判斷是否有金銀獎（檢查 evaluationResult 或 inspectionStatus）
+function hasGoldOrSilverAward(evaluationResult, inspectionStatus) {
+  const evalStr = String(evaluationResult || "").trim();
+  const inspectStr = String(inspectionStatus || "").trim();
+  const allStatusText = `${evalStr} ${inspectStr}`.trim();
+  
+  if (!allStatusText) return false;
+  
+  const result = allStatusText.toLowerCase();
+  return result.includes("金質") || result.includes("銀質");
 }
 
 // 判斷是否為不合格店家
@@ -175,50 +201,126 @@ function isUnqualifiedShop(evaluationResult) {
 }
 
 // 根據狀態獲取卡片邊框顏色類別
-function getCardClass(status) {
-  if (!status) return "shop-card--default";
+// 優先顯示需要關注的狀態（不合格、改善等），其次是獎項
+function getCardClass(status, evaluationResult, inspectionStatus) {
+  const evalStr = String(evaluationResult || "").trim();
+  const inspectStr = String(inspectionStatus || "").trim();
+  const statusStr = String(status || "").trim();
   
-  const statusStr = String(status).trim();
+  // 合併所有狀態文字
+  const allStatusText = `${evalStr} ${inspectStr} ${statusStr}`.trim();
   
-  // 必須按照從具體到一般的順序判斷
-  // 複查不合格：深紅色（必須在"不合格"之前）
-  if (statusStr.indexOf("複查不合格") !== -1) {
+  if (!allStatusText) return "shop-card--default";
+  
+  // 必須按照優先級從高到低判斷（優先顯示需要關注的狀態）
+  // 複查不合格：深紅色（最高優先級）
+  if (allStatusText.indexOf("複查不合格") !== -1) {
     return "shop-card--recheck-unqualified";
   }
-  // 複查合格：淺藍色（必須在"合格"之前）
-  if (statusStr.indexOf("複查合格") !== -1) {
+  // 不合格：紅色
+  if (allStatusText.indexOf("不合格") !== -1 && allStatusText.indexOf("複查不合格") === -1) {
+    return "shop-card--unqualified";
+  }
+  // 限期改善：橙色
+  if (allStatusText.indexOf("限期改善") !== -1) {
+    return "shop-card--improvement";
+  }
+  // 輔導改善：淺橙色（即使有金銀獎也優先顯示）
+  if (allStatusText.indexOf("輔導改善") !== -1) {
+    return "shop-card--guidance";
+  }
+  // 複查合格：淺藍色
+  if (allStatusText.indexOf("複查合格") !== -1) {
     return "shop-card--recheck-qualified";
   }
   // 金質：金色
-  if (statusStr.indexOf("金質") !== -1) {
+  if (allStatusText.indexOf("金質") !== -1) {
     return "shop-card--gold";
   }
   // 銀質：銀色
-  if (statusStr.indexOf("銀質") !== -1) {
+  if (allStatusText.indexOf("銀質") !== -1) {
     return "shop-card--silver";
   }
   // 優良：綠色
-  if (statusStr.indexOf("優良") !== -1) {
+  if (allStatusText.indexOf("優良") !== -1) {
     return "shop-card--excellent";
   }
-  // 不合格：紅色（必須在"複查不合格"之後）
-  if (statusStr.indexOf("不合格") !== -1) {
-    return "shop-card--unqualified";
-  }
-  // 合格：藍色（必須在"複查合格"之後）
-  if (statusStr.indexOf("合格") !== -1) {
+  // 合格：藍色
+  if (allStatusText.indexOf("合格") !== -1 && allStatusText.indexOf("複查合格") === -1) {
     return "shop-card--qualified";
-  }
-  // 限期改善：橙色
-  if (statusStr.indexOf("限期改善") !== -1) {
-    return "shop-card--improvement";
-  }
-  // 輔導改善：淺橙色
-  if (statusStr.indexOf("輔導改善") !== -1) {
-    return "shop-card--guidance";
   }
   
   return "shop-card--default";
+}
+
+// 提取所有狀態標籤（支援同時顯示金銀獎和輔導改善）
+function getStatusLabels(status, evaluationResult, inspectionStatus) {
+  const labels = [];
+  const statusStr = String(status || "").trim();
+  const evalStr = String(evaluationResult || "").trim();
+  const inspectStr = String(inspectionStatus || "").trim();
+  
+  // 定義所有可能的狀態關鍵詞和對應的顯示文字（按優先級從高到低）
+  const statusKeywords = [
+    { keyword: "複查不合格", label: "複查不合格" },
+    { keyword: "不合格", label: "不合格" },
+    { keyword: "限期改善", label: "限期改善" },
+    { keyword: "輔導改善", label: "輔導改善" },
+    { keyword: "複查合格", label: "複查合格" },
+    { keyword: "金質", label: "金質獎" },
+    { keyword: "銀質", label: "銀質獎" },
+    { keyword: "優良", label: "優良" },
+    { keyword: "合格", label: "合格" },
+  ];
+  
+  // 按順序檢查每個關鍵詞（從具體到一般，從重要到一般）
+  const foundKeywords = new Set();
+  
+  statusKeywords.forEach(({ keyword, label }) => {
+    // 檢查 evaluationResult 或 inspectionStatus 中是否包含該關鍵詞
+    const foundInEval = evalStr.indexOf(keyword) !== -1;
+    const foundInInspect = inspectStr.indexOf(keyword) !== -1;
+    
+    if ((foundInEval || foundInInspect) && !foundKeywords.has(keyword)) {
+      // 處理特殊情況：避免"不合格"和"複查不合格"同時出現
+      if (keyword === "不合格") {
+        // 檢查是否已經有"複查不合格"
+        if (foundKeywords.has("複查不合格") || 
+            evalStr.indexOf("複查不合格") !== -1 || 
+            inspectStr.indexOf("複查不合格") !== -1) {
+          return; // 跳過，因為已經有"複查不合格"
+        }
+      }
+      // 處理特殊情況：避免"合格"和"複查合格"同時出現
+      if (keyword === "合格") {
+        // 檢查是否已經有"複查合格"
+        if (foundKeywords.has("複查合格") || 
+            evalStr.indexOf("複查合格") !== -1 || 
+            inspectStr.indexOf("複查合格") !== -1) {
+          return; // 跳過，因為已經有"複查合格"
+        }
+        // 如果同時有"不合格"相關狀態，也不顯示"合格"
+        if (foundKeywords.has("不合格") || 
+            foundKeywords.has("複查不合格") ||
+            evalStr.indexOf("不合格") !== -1 || 
+            inspectStr.indexOf("不合格") !== -1 ||
+            evalStr.indexOf("複查不合格") !== -1 || 
+            inspectStr.indexOf("複查不合格") !== -1) {
+          return;
+        }
+      }
+      
+      labels.push(label);
+      foundKeywords.add(keyword);
+    }
+  });
+  
+  // 如果沒有找到任何狀態，使用原始 status
+  if (labels.length === 0 && statusStr) {
+    labels.push(statusStr);
+  }
+  
+  return labels;
 }
 
 // 根據狀態獲取標籤顏色類別
@@ -236,11 +338,11 @@ function getStatusClass(status) {
   if (statusStr.indexOf("複查合格") !== -1) {
     return "shop-status--recheck-qualified";
   }
-  // 金質：金色
+  // 金質獎：金色（支援"金質獎"和"金質"）
   if (statusStr.indexOf("金質") !== -1) {
     return "shop-status--gold";
   }
-  // 銀質：銀色
+  // 銀質獎：銀色（支援"銀質獎"和"銀質"）
   if (statusStr.indexOf("銀質") !== -1) {
     return "shop-status--silver";
   }
@@ -249,11 +351,11 @@ function getStatusClass(status) {
     return "shop-status--excellent";
   }
   // 不合格：紅色（必須在"複查不合格"之後）
-  if (statusStr.indexOf("不合格") !== -1) {
+  if (statusStr.indexOf("不合格") !== -1 && statusStr.indexOf("複查不合格") === -1) {
     return "shop-status--unqualified";
   }
   // 合格：藍色（必須在"複查合格"之後）
-  if (statusStr.indexOf("合格") !== -1) {
+  if (statusStr.indexOf("合格") !== -1 && statusStr.indexOf("複查合格") === -1) {
     return "shop-status--qualified";
   }
   // 限期改善：橙色
@@ -296,6 +398,8 @@ async function loadNightMarketShops(marketName) {
         name: shop.stallName || shop.businessName || "",
         address: shop.address || "",
         status: status,
+        evaluationResult: evaluationResult,
+        inspectionStatus: inspectionStatus,
       };
 
       // 調試：記錄每個店家的狀態
@@ -304,22 +408,32 @@ async function loadNightMarketShops(marketName) {
         evaluationResult: evaluationResult,
         inspectionStatus: inspectionStatus,
         status: shopItem.status,
-        cardClass: getCardClass(status),
+        cardClass: getCardClass(status, evaluationResult, inspectionStatus),
         statusClass: getStatusClass(status),
       });
 
       // 優先判斷 inspectionStatus（最新稽查狀態）
       // 如果 inspectionStatus 顯示不合格，則歸入不合格名單（優先級最高）
-      // 否則根據 evaluationResult 判斷是否為優良店家
-      if (inspectionStatus && isUnqualifiedShop(inspectionStatus)) {
-        // 有 inspectionStatus 且為不合格，歸入不合格名單
+      // 但如果同時有優良評價（金質、銀質等），也要顯示在優良名單中
+      const hasUnqualified = inspectionStatus && isUnqualifiedShop(inspectionStatus) || 
+                             evaluationResult && isUnqualifiedShop(evaluationResult);
+      
+      // 檢查是否有優良評價（包括金質、銀質、優良、合格、複查合格）
+      // 同時檢查 evaluationResult 和 inspectionStatus
+      const hasGood = isGoodShop(evaluationResult, inspectionStatus);
+      
+      // 特別檢查是否有金銀獎（必須顯示在優良名單）
+      const hasAward = hasGoldOrSilverAward(evaluationResult, inspectionStatus);
+      
+      if (hasUnqualified) {
+        // 有不合格狀態，歸入不合格名單
         unqualified.push(shopItem);
-      } else if (evaluationResult && isGoodShop(evaluationResult)) {
-        // evaluationResult 為優良，歸入優良名單
+      }
+      
+      // 有優良評價或金銀獎，歸入優良名單
+      // 即使同時有不合格狀態，也要顯示在優良名單中
+      if (hasGood || hasAward) {
         good.push(shopItem);
-      } else if (evaluationResult && isUnqualifiedShop(evaluationResult)) {
-        // 只有 evaluationResult 且為不合格，歸入不合格名單
-        unqualified.push(shopItem);
       }
     });
 
@@ -552,6 +666,13 @@ function goBack() {
   font-size: 14px;
   color: var(--grayscale-500);
   margin: 0;
+}
+
+.shop-status-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
 }
 
 .shop-status {
