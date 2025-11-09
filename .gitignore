@@ -103,7 +103,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# 注意：不要忽略 Flutter 的 lib/ 目錄
+# lib/  # 已註釋，因為 Flutter 項目需要 lib/ 目錄
 lib64/
 parts/
 sdist/
@@ -112,6 +113,10 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+# Python 虛擬環境中的 lib 目錄（不在項目根目錄）
+**/venv/lib/
+**/env/lib/
+**/.venv/lib/
 
 # Virtual Environment
 venv/
