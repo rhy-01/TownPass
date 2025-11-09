@@ -62,17 +62,12 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   print('通知標題: ${message.notification?.title}');
   print('通知內容: ${message.notification?.body}');
   
-  // 從 data 字段讀取餐廳資訊（匹配 Python 後端發送的格式）
+  // 從 data 字段讀取訊息
   final data = message.data;
-  final restaurantName = data['restaurant_name']?.toString();
-  final regNo = data['restaurant_reg_no']?.toString();
-  final lat = data['restaurant_latitude']?.toString();
-  final lng = data['restaurant_longitude']?.toString();
-  final status = data['restaurant_status']?.toString();
-  final type = data['type']?.toString();
-  // targetUrl 和 timestamp 保留供將來使用（例如導航到餐廳詳情頁）
-  final targetUrl = data['targetUrl']?.toString();
-  final timestamp = data['timestamp']?.toString();
+  
+  // 檢查消息類型
+  final msgtyp = data['msgtyp']?.toString();
+  final sellerTin = data['seller_tin']?.toString();
   
   // 獲取 title 和 body（優先從 notification，否則從 data）
   String? title;
@@ -86,87 +81,141 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
     body = data['body']?.toString();
   }
   
-  print('📋 接收到的 FCM 訊息（背景）：');
-  print('  餐廳名稱: $restaurantName');
-  print('  登記號碼: $regNo');
-  print('  經緯度: ($lat, $lng)');
-  print('  狀態: $status');
-  print('  類型: $type');
-  print('  目標 URL: $targetUrl');
-  print('  時間戳: $timestamp');
-  print('  標題: $title');
-  print('  內容: $body');
-  
-  // 檢查是否有經緯度（必要條件）
-  if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
-    try {
-      // 將字串轉換為數字
-      final restaurantLat = double.tryParse(lat);
-      final restaurantLng = double.tryParse(lng);
-      
-      if (restaurantLat != null && restaurantLng != null) {
-        // 嘗試獲取用戶當前位置（用於距離計算）
-        // 注意：在背景處理器中，我們直接使用 geolocator，不依賴 GetX 服務
-        Position? userPosition;
-        try {
-          userPosition = await _getUserPositionInBackground();
-        } catch (e) {
-          print('⚠️  背景處理器無法獲取用戶位置: $e');
-        }
-        
-        final referenceLat = userPosition?.latitude ?? _defaultReferenceLatitude;
-        final referenceLng = userPosition?.longitude ?? _defaultReferenceLongitude;
-        final isUsingDefaultLocation = userPosition == null;
-        
-        // 計算餐廳與用戶位置的距離
-        final distanceKm = _calculateDistance(
-          referenceLat,
-          referenceLng,
-          restaurantLat,
-          restaurantLng,
+  // 判斷消息類型：發票類型 (invoice) 或餐廳稽查類型 (inspection_failure)
+  if (msgtyp == 'invoice' || sellerTin != null) {
+    // 處理發票類型的消息
+    print('📋 接收到的發票 FCM 訊息（背景）：');
+    
+    final sellerName = data['seller_name']?.toString();
+    final invoiceDate = data['invoice_date']?.toString();
+    final alert = data['alert']?.toString();
+    final lat = data['latitude']?.toString();
+    final lng = data['longitude']?.toString();
+    final status = data['status']?.toString();
+    final timestamp = data['timestamp']?.toString();
+    
+    print('  賣方名稱: $sellerName');
+    print('  賣方統編: $sellerTin');
+    print('  發票日期: $invoiceDate');
+    print('  警報狀態: $alert');
+    print('  經緯度: ($lat, $lng)');
+    print('  狀態: $status');
+    print('  時間戳: $timestamp');
+    print('  標題: $title');
+    print('  內容: $body');
+    
+    // 如果有 seller_tin，直接顯示通知（發票類型不需要距離檢查）
+    if (sellerTin != null && sellerTin.isNotEmpty) {
+      print('✅ 收到發票訊息（seller_tin: $sellerTin），顯示通知');
+      if (title != null && title.isNotEmpty) {
+        await _showBackgroundNotification(title, body ?? '您有新的發票相關通知');
+        print('通知已顯示');
+      } else if (message.notification != null) {
+        await _showBackgroundNotification(
+          message.notification!.title ?? '發票通知',
+          message.notification!.body ?? '您有新的發票相關通知',
         );
-        
-        print('📍 餐廳座標: ($restaurantLat, $restaurantLng)');
-        if (isUsingDefaultLocation) {
-          print('📍 使用預設參考座標: ($referenceLat, $referenceLng)');
-          print('ℹ️  無法獲取用戶位置，使用預設座標進行距離計算');
-        } else {
-          print('📍 用戶當前位置: ($referenceLat, $referenceLng)');
-        }
-        print('📏 距離: ${distanceKm.toStringAsFixed(2)} 公里');
-        
-        // 只在 10 公里範圍內才顯示通知
-        if (distanceKm <= _notificationRadiusKm) {
-          if (title != null && title.isNotEmpty) {
-            print('✅ 餐廳在 ${_notificationRadiusKm} 公里範圍內，顯示通知');
-            print('標題: $title');
-            print('內容: ${body ?? "無內容"}');
-            print('餐廳: $restaurantName');
-            print('經緯度: ($lat, $lng)');
-            
-            // 在背景處理器中顯示通知
-            await _showBackgroundNotification(title, body ?? '您有新的通知');
-            
-            print('通知已顯示');
-          } else {
-            print('ℹ️  餐廳在範圍內但沒有 title，只輸出日志');
-            print('完整數據: ${message.data}');
-          }
-        } else {
-          print('⚠️  餐廳距離 ${distanceKm.toStringAsFixed(2)} 公里，超出 ${_notificationRadiusKm} 公里範圍，不顯示通知');
-        }
+        print('通知已顯示');
       } else {
-        print('⚠️  無法解析經緯度數值: lat=$lat, lng=$lng');
+        print('⚠️  發票訊息沒有 title 或 notification，只輸出日志');
       }
-    } catch (e) {
-      print('❌ 計算距離時發生錯誤: $e');
-      print('完整數據: ${message.data}');
+    } else {
+      print('⚠️  發票訊息沒有 seller_tin，只輸出日志');
     }
   } else {
-    print('⚠️  沒有經緯度或經緯度為空，只輸出日志');
-    print('完整數據: ${message.data}');
-    if (message.notification != null) {
-      print('通知對象: ${message.notification}');
+    // 處理餐廳稽查類型的消息
+    print('📋 接收到的餐廳 FCM 訊息（背景）：');
+    
+    final restaurantName = data['restaurant_name']?.toString();
+    final regNo = data['restaurant_reg_no']?.toString();
+    final lat = data['restaurant_latitude']?.toString();
+    final lng = data['restaurant_longitude']?.toString();
+    final status = data['restaurant_status']?.toString();
+    final type = data['type']?.toString();
+    final targetUrl = data['targetUrl']?.toString();
+    final timestamp = data['timestamp']?.toString();
+    
+    print('  餐廳名稱: $restaurantName');
+    print('  登記號碼: $regNo');
+    print('  經緯度: ($lat, $lng)');
+    print('  狀態: $status');
+    print('  類型: $type');
+    print('  目標 URL: $targetUrl');
+    print('  時間戳: $timestamp');
+    print('  標題: $title');
+    print('  內容: $body');
+    
+    // 檢查是否有經緯度（必要條件）
+    if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
+      try {
+        // 將字串轉換為數字
+        final restaurantLat = double.tryParse(lat);
+        final restaurantLng = double.tryParse(lng);
+        
+        if (restaurantLat != null && restaurantLng != null) {
+          // 嘗試獲取用戶當前位置（用於距離計算）
+          // 注意：在背景處理器中，我們直接使用 geolocator，不依賴 GetX 服務
+          Position? userPosition;
+          try {
+            userPosition = await _getUserPositionInBackground();
+          } catch (e) {
+            print('⚠️  背景處理器無法獲取用戶位置: $e');
+          }
+          
+          final referenceLat = userPosition?.latitude ?? _defaultReferenceLatitude;
+          final referenceLng = userPosition?.longitude ?? _defaultReferenceLongitude;
+          final isUsingDefaultLocation = userPosition == null;
+          
+          // 計算餐廳與用戶位置的距離
+          final distanceKm = _calculateDistance(
+            referenceLat,
+            referenceLng,
+            restaurantLat,
+            restaurantLng,
+          );
+          
+          print('📍 餐廳座標: ($restaurantLat, $restaurantLng)');
+          if (isUsingDefaultLocation) {
+            print('📍 使用預設參考座標: ($referenceLat, $referenceLng)');
+            print('ℹ️  無法獲取用戶位置，使用預設座標進行距離計算');
+          } else {
+            print('📍 用戶當前位置: ($referenceLat, $referenceLng)');
+          }
+          print('📏 距離: ${distanceKm.toStringAsFixed(2)} 公里');
+          
+          // 只在 10 公里範圍內才顯示通知
+          if (distanceKm <= _notificationRadiusKm) {
+            if (title != null && title.isNotEmpty) {
+              print('✅ 餐廳在 ${_notificationRadiusKm} 公里範圍內，顯示通知');
+              print('標題: $title');
+              print('內容: ${body ?? "無內容"}');
+              print('餐廳: $restaurantName');
+              print('經緯度: ($lat, $lng)');
+              
+              // 在背景處理器中顯示通知
+              await _showBackgroundNotification(title, body ?? '您有新的通知');
+              
+              print('通知已顯示');
+            } else {
+              print('ℹ️  餐廳在範圍內但沒有 title，只輸出日志');
+              print('完整數據: ${message.data}');
+            }
+          } else {
+            print('⚠️  餐廳距離 ${distanceKm.toStringAsFixed(2)} 公里，超出 ${_notificationRadiusKm} 公里範圍，不顯示通知');
+          }
+        } else {
+          print('⚠️  無法解析經緯度數值: lat=$lat, lng=$lng');
+        }
+      } catch (e) {
+        print('❌ 計算距離時發生錯誤: $e');
+        print('完整數據: ${message.data}');
+      }
+    } else {
+      print('⚠️  沒有經緯度或經緯度為空，只輸出日志');
+      print('完整數據: ${message.data}');
+      if (message.notification != null) {
+        print('通知對象: ${message.notification}');
+      }
     }
   }
   

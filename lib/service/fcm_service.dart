@@ -138,16 +138,9 @@ class FcmService extends GetxService {
     print('通知標題: ${notification?.title}');
     print('通知內容: ${notification?.body}');
 
-    // 從 data 字段讀取餐廳資訊（匹配 Python 後端發送的格式）
-    final restaurantName = data['restaurant_name']?.toString();
-    final regNo = data['restaurant_reg_no']?.toString();
-    final lat = data['restaurant_latitude']?.toString();
-    final lng = data['restaurant_longitude']?.toString();
-    final status = data['restaurant_status']?.toString();
-    final type = data['type']?.toString();
-    // targetUrl 和 timestamp 保留供將來使用（例如導航到餐廳詳情頁）
-    final targetUrl = data['targetUrl']?.toString();
-    final timestamp = data['timestamp']?.toString();
+    // 檢查消息類型
+    final msgtyp = data['msgtyp']?.toString();
+    final sellerTin = data['seller_tin']?.toString();
     
     // 獲取 title 和 body（優先從 notification，否則從 data）
     String? title;
@@ -161,7 +154,87 @@ class FcmService extends GetxService {
       body = data['body']?.toString();
     }
     
-    print('📋 接收到的 FCM 訊息：');
+    // 判斷消息類型：發票類型 (invoice) 或餐廳稽查類型 (inspection_failure)
+    if (msgtyp == 'invoice' || sellerTin != null) {
+      // 處理發票類型的消息
+      await _handleInvoiceMessage(data, notification, title, body);
+    } else {
+      // 處理餐廳稽查類型的消息
+      await _handleRestaurantMessage(data, notification, title, body);
+    }
+    
+    print('=== 前景訊息處理完成 ===');
+  }
+
+  /// 處理發票類型的 FCM 消息
+  Future<void> _handleInvoiceMessage(
+    Map<String, dynamic> data,
+    RemoteNotification? notification,
+    String? title,
+    String? body,
+  ) async {
+    print('📋 接收到的發票 FCM 訊息：');
+    
+    final sellerName = data['seller_name']?.toString();
+    final sellerTin = data['seller_tin']?.toString();
+    final invoiceDate = data['invoice_date']?.toString();
+    final alert = data['alert']?.toString();
+    final lat = data['latitude']?.toString();
+    final lng = data['longitude']?.toString();
+    final status = data['status']?.toString();
+    final timestamp = data['timestamp']?.toString();
+    
+    print('  賣方名稱: $sellerName');
+    print('  賣方統編: $sellerTin');
+    print('  發票日期: $invoiceDate');
+    print('  警報狀態: $alert');
+    print('  經緯度: ($lat, $lng)');
+    print('  狀態: $status');
+    print('  時間戳: $timestamp');
+    print('  標題: $title');
+    print('  內容: $body');
+    
+    // 如果有 seller_tin，直接顯示通知（發票類型不需要距離檢查）
+    if (sellerTin != null && sellerTin.isNotEmpty) {
+      print('✅ 收到發票訊息（seller_tin: $sellerTin），顯示通知');
+      if (title != null && title.isNotEmpty) {
+        NotificationService.showNotification(
+          title: title,
+          content: body ?? '您有新的發票相關通知',
+        );
+      } else if (notification != null) {
+        // 如果沒有 title，但 notification 存在，使用 notification 的內容
+        NotificationService.showNotification(
+          title: notification.title ?? '發票通知',
+          content: notification.body ?? '您有新的發票相關通知',
+        );
+      } else {
+        print('⚠️  發票訊息沒有 title 或 notification，只輸出日志');
+      }
+    } else {
+      print('⚠️  發票訊息沒有 seller_tin，只輸出日志');
+    }
+  }
+
+  /// 處理餐廳稽查類型的 FCM 消息
+  Future<void> _handleRestaurantMessage(
+    Map<String, dynamic> data,
+    RemoteNotification? notification,
+    String? title,
+    String? body,
+  ) async {
+    print('📋 接收到的餐廳 FCM 訊息：');
+    
+    // 從 data 字段讀取餐廳資訊（匹配 Python 後端發送的格式）
+    final restaurantName = data['restaurant_name']?.toString();
+    final regNo = data['restaurant_reg_no']?.toString();
+    final lat = data['restaurant_latitude']?.toString();
+    final lng = data['restaurant_longitude']?.toString();
+    final status = data['restaurant_status']?.toString();
+    final type = data['type']?.toString();
+    final targetUrl = data['targetUrl']?.toString();
+    final timestamp = data['timestamp']?.toString();
+    
     print('  餐廳名稱: $restaurantName');
     print('  登記號碼: $regNo');
     print('  經緯度: ($lat, $lng)');
@@ -227,8 +300,6 @@ class FcmService extends GetxService {
         print('通知對象: $notification');
       }
     }
-    
-    print('=== 前景訊息處理完成 ===');
   }
 
   /// 獲取 FCM Token

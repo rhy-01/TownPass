@@ -40,6 +40,8 @@ migrate_working_dir/
 **/android/gradlew.bat
 **/android/local.properties
 **/android/**/GeneratedPluginRegistrant.java
+# Google Services JSON (包含敏感信息，不應提交到版本控制)
+**/android/**/google-services.json
 android/app/google-services.json
 
 # iOS/XCode related
@@ -78,7 +80,6 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
-android/app/google-services.json
 *.g.dart
 *.gen.dart
 
