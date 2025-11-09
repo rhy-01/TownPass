@@ -14,7 +14,7 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 RUN nginx -t
 
 # 暴露端口
-EXPOSE 8081
+EXPOSE 8080
 
 # 啟動 nginx
 CMD ["nginx", "-g", "daemon off;"]

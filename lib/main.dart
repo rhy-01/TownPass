@@ -17,6 +17,7 @@ import 'package:town_pass/service/device_registration_service.dart';
 import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/fcm_service.dart';
 import 'package:town_pass/service/geo_locator_service.dart';
+import 'package:town_pass/service/geocoding_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/package_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
@@ -399,6 +400,7 @@ Future<void> initServices() async {
   await Get.putAsync<PackageService>(() async => await PackageService().init());
   await Get.putAsync<SharedPreferencesService>(() async => await SharedPreferencesService().init());
   await Get.putAsync<GeoLocatorService>(() async => await GeoLocatorService().init());
+  await Get.putAsync<GeocodingService>(() async => await GeocodingService().init());
   await Get.putAsync<NotificationService>(() async => await NotificationService().init());
   
   // 初始化 API 服務

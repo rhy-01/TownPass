@@ -61,7 +61,7 @@
               <button
                 class="address-delete-button"
                 :aria-label="`刪除地址 ${address}`"
-                @click.stop="deleteAddress(address, index)"
+                @click.stop="deleteAddress(address)"
               >
                 <span class="material-icons">delete</span>
               </button>
@@ -94,50 +94,6 @@
           夜市
         </button>
       </div>
-
-      <!-- Latest News Section -->
-      <section class="news-section">
-        <div class="news-section-header">
-          <h2 class="news-section-title">
-            最新消息
-          </h2>
-          <button
-            class="news-section-more"
-            @click="goActivity"
-          >
-            更多
-          </button>
-        </div>
-        <div
-          v-if="latestNews.length > 0"
-          class="news-list"
-        >
-          <article
-            v-for="(news, index) in latestNews"
-            :key="index"
-            class="news-card"
-            @click="goActivity"
-          >
-            <div class="news-card-content">
-              <h3 class="news-card-title">
-                {{ news.title }}
-              </h3>
-              <p class="news-card-date">
-                {{ news.date }}
-              </p>
-            </div>
-            <span class="material-icons news-card-arrow">chevron_right</span>
-          </article>
-        </div>
-        <div
-          v-else
-          class="empty-state"
-        >
-          <p class="empty-state-text">
-            目前尚無最新消息
-          </p>
-        </div>
-      </section>
     </main>
 
     <!-- Dropdown Overlay -->
@@ -152,15 +108,17 @@
 <script setup>
 import { ref, onMounted, onUnmounted, onActivated } from "vue";
 import { useRouter } from "vue-router";
-import { 
-  initFlutterBridge, 
-  getCurrentLocationAddress, 
-  getUserInfo 
-} from "@/utils/flutterBridge";
 import { addDebugLog } from "@/utils/debugLogger";
 import GoogleMap from "@/components/GoogleMap.vue";
 import { geocodeAddress } from "@/utils/geocode";
 import { getUnsafeLocations } from "@/utils/api";
+import {
+  initializeFavoriteLocations,
+  getAllAddresses,
+  addAddress,
+  removeAddress,
+  setSelectedAddress,
+} from "@/utils/favoriteLocation";
 
 const router = useRouter();
 
@@ -206,8 +164,8 @@ function toggleDropdown() {
 async function selectAddress(address) {
   selectedAddress.value = address;
   showDropdown.value = false;
-  // Save selected address to localStorage
-  localStorage.setItem("foodSafetySelectedAddress", address);
+  // Save selected address using favoriteLocation utility
+  setSelectedAddress(address);
   
   // 更新地圖中心到選中的地址
   try {
@@ -228,25 +186,23 @@ async function selectAddress(address) {
   }
 }
 
-function deleteAddress(address, index) {
+function deleteAddress(address) {
   if (confirm(`確定要刪除地址「${address}」嗎？`)) {
-    // Remove from list
-    addressList.value.splice(index, 1);
-    // Update localStorage
-    if (addressList.value.length > 0) {
-      localStorage.setItem("foodSafetyAddresses", JSON.stringify(addressList.value));
-    } else {
-      localStorage.removeItem("foodSafetyAddresses");
-    }
+    // Remove address using favoriteLocation utility
+    removeAddress(address);
+    
+    // Update local state
+    addressList.value = getAllAddresses();
+    
     // If deleted address was selected, select first available address
     if (selectedAddress.value === address) {
-      if (addressList.value.length > 0) {
-        selectedAddress.value = addressList.value[0];
-        localStorage.setItem("foodSafetySelectedAddress", addressList.value[0]);
+      const updatedAddresses = getAllAddresses();
+      if (updatedAddresses.length > 0) {
+        selectedAddress.value = updatedAddresses[0];
+        setSelectedAddress(updatedAddresses[0]);
       } else {
         // If no addresses left, set a default or empty message
         selectedAddress.value = "請新增地址";
-        localStorage.removeItem("foodSafetySelectedAddress");
       }
     }
   }
@@ -265,13 +221,6 @@ function goNightMarket() {
   router.push("/night-market");
 }
 
-// Latest news
-const latestNews = ref([
-  { title: "食品安全檢驗報告更新", date: "2025/11/05" },
-  { title: "夜市衛生宣導活動開跑", date: "2025/11/03" },
-  { title: "最新餐廳稽查公告", date: "2025/11/01" },
-]);
-
 // Navigation
 function goNotification() {
   router.push("/notification");
@@ -279,10 +228,6 @@ function goNotification() {
 
 function goReceipt() {
   router.push("/receipt");
-}
-
-function goActivity() {
-  router.push("/activities");
 }
 
 function goAddAddress() {
@@ -297,167 +242,117 @@ function handleAddressAdded() {
   loadAddresses();
 }
 
-// Load addresses from localStorage on mount
+// Load addresses from favorite_location.json and localStorage
 async function loadAddresses() {
-  const savedAddresses = localStorage.getItem("foodSafetyAddresses");
-  const savedSelected = localStorage.getItem("foodSafetySelectedAddress");
-  if (savedAddresses) {
-    const parsed = JSON.parse(savedAddresses);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      addressList.value = parsed;
-      if (savedSelected && parsed.includes(savedSelected)) {
-        selectedAddress.value = savedSelected;
-        // 更新地圖中心
-        try {
-          const coordinates = await geocodeAddress(savedSelected);
-          if (coordinates) {
-            forceMapUpdate.value = true;
-            mapCenter.value = coordinates;
-            setTimeout(() => {
-              forceMapUpdate.value = false;
-            }, 100);
-          }
-        } catch (error) {
-          addDebugLog("error", "Failed to geocode saved address", {
-            address: savedSelected,
-            error: error.message,
-          });
+  // Initialize favorite locations (loads from JSON and merges with localStorage)
+  const { addresses, selectedAddress: savedSelected } = initializeFavoriteLocations();
+  
+  if (addresses && addresses.length > 0) {
+    addressList.value = addresses;
+    
+    if (savedSelected && addresses.includes(savedSelected)) {
+      selectedAddress.value = savedSelected;
+      // 更新地圖中心
+      try {
+        const coordinates = await geocodeAddress(savedSelected);
+        if (coordinates) {
+          forceMapUpdate.value = true;
+          mapCenter.value = coordinates;
+          setTimeout(() => {
+            forceMapUpdate.value = false;
+          }, 100);
         }
-      } else if (parsed.length > 0) {
-        selectedAddress.value = parsed[0];
-        localStorage.setItem("foodSafetySelectedAddress", parsed[0]);
-        // 更新地圖中心
-        try {
-          const coordinates = await geocodeAddress(parsed[0]);
-          if (coordinates) {
-            forceMapUpdate.value = true;
-            mapCenter.value = coordinates;
-            setTimeout(() => {
-              forceMapUpdate.value = false;
-            }, 100);
-          }
-        } catch (error) {
-          addDebugLog("error", "Failed to geocode first address", {
-            address: parsed[0],
-            error: error.message,
-          });
+      } catch (error) {
+        addDebugLog("error", "Failed to geocode saved address", {
+          address: savedSelected,
+          error: error.message,
+        });
+      }
+    } else if (addresses.length > 0) {
+      selectedAddress.value = addresses[0];
+      setSelectedAddress(addresses[0]);
+      // 更新地圖中心
+      try {
+        const coordinates = await geocodeAddress(addresses[0]);
+        if (coordinates) {
+          forceMapUpdate.value = true;
+          mapCenter.value = coordinates;
+          setTimeout(() => {
+            forceMapUpdate.value = false;
+          }, 100);
         }
+      } catch (error) {
+        addDebugLog("error", "Failed to geocode first address", {
+          address: addresses[0],
+          error: error.message,
+        });
       }
     }
   }
 }
 
-// 初始化地址：獲取當前位置和用戶地址
-async function initializeAddresses() {
-  // 檢查是否在App環境中
-  const isInApp = initFlutterBridge();
-  if (!isInApp) {
-    addDebugLog('log', "Not running in app, using localStorage addresses only");
-    loadAddresses();
+// 接收 Flutter 傳遞的定位地址
+function receiveLocationAddress(address) {
+  if (!address || !address.trim()) {
+    addDebugLog('warn', "Received empty address from Flutter");
     return;
   }
 
-  isLoadingLocation.value = true;
-  const newAddresses = [];
-  const existingAddresses = new Set();
-
-  // 1. 獲取當前位置並轉換為地址
-  try {
-    addDebugLog('log', "Getting current location...");
-    const currentLocationAddress = await getCurrentLocationAddress();
-    if (currentLocationAddress && currentLocationAddress.trim()) {
-      newAddresses.push({
-        address: currentLocationAddress.trim(),
-        source: "location",
-        isDefault: true
-      });
-      existingAddresses.add(currentLocationAddress.trim());
-      addDebugLog('log', "Current location address", { address: currentLocationAddress });
-    }
-  } catch (error) {
-    addDebugLog('error', "Failed to get current location", { error: error.message });
-  }
-
-  // 2. 獲取用戶的residentAddress
-  try {
-    addDebugLog('log', "Getting user info...");
-    const userInfo = await getUserInfo();
-    if (userInfo && userInfo.residentAddress && userInfo.residentAddress.trim()) {
-      const residentAddress = userInfo.residentAddress.trim();
-      if (!existingAddresses.has(residentAddress)) {
-        newAddresses.push({
-          address: residentAddress,
-          source: "userinfo",
-          isDefault: false
-        });
-        existingAddresses.add(residentAddress);
-        addDebugLog('log', "User resident address", { address: residentAddress });
-      }
-    }
-  } catch (error) {
-    addDebugLog('error', "Failed to get user info", { error: error.message });
-  }
-
-  // 3. 加載已保存的地址
-  const savedAddresses = localStorage.getItem("foodSafetyAddresses");
-  if (savedAddresses) {
-    try {
-      const parsed = JSON.parse(savedAddresses);
-      if (Array.isArray(parsed)) {
-        parsed.forEach(addr => {
-          if (typeof addr === 'string' && addr.trim() && !existingAddresses.has(addr.trim())) {
-            newAddresses.push({
-              address: addr.trim(),
-              source: "saved",
-              isDefault: false
-            });
-            existingAddresses.add(addr.trim());
-          }
-        });
-      }
-    } catch (error) {
-      addDebugLog("error", "Failed to parse saved addresses", { error: error.message });
-    }
-  }
-
-  // 4. 更新地址列表
-  if (newAddresses.length > 0) {
-    // 將地址轉換為字符串數組
-    addressList.value = newAddresses.map(item => item.address);
-    
-    // 設置默認地址（優先使用當前位置）
-    const defaultItem = newAddresses.find(item => item.isDefault) || newAddresses[0];
-    if (defaultItem) {
-      selectedAddress.value = defaultItem.address;
-      localStorage.setItem("foodSafetySelectedAddress", defaultItem.address);
-      
-      // 更新地圖中心到默認地址
-      try {
-        const coordinates = await geocodeAddress(defaultItem.address);
-        if (coordinates) {
-          forceMapUpdate.value = true;
-          mapCenter.value = coordinates;
-          // 延遲重置，確保地圖有時間更新
-          setTimeout(() => {
-            forceMapUpdate.value = false;
-          }, 200);
-        }
-      } catch (error) {
-        addDebugLog("error", "Failed to geocode default address", { 
-          address: defaultItem.address, 
-          error: error.message 
-        });
-      }
-    }
-
-    // 保存到localStorage
-    localStorage.setItem("foodSafetyAddresses", JSON.stringify(addressList.value));
-  } else {
-    // 如果沒有獲取到任何地址，使用localStorage中的地址
-    loadAddresses();
-  }
-
+  addDebugLog('log', "Received location address from Flutter", { address });
   isLoadingLocation.value = false;
+
+  // 處理接收到的地址
+  const newAddress = address.trim();
+  const existingAddresses = new Set(getAllAddresses().map(addr => addr.trim()));
+
+  // 如果地址不存在，添加到地址列表
+  if (!existingAddresses.has(newAddress)) {
+    addAddress(newAddress, true); // 設置為選中
+    addressList.value = getAllAddresses();
+  }
+
+  // 設置為選中地址
+  selectedAddress.value = newAddress;
+  setSelectedAddress(newAddress);
+
+  // 更新地圖中心
+  geocodeAddress(newAddress).then(coordinates => {
+    if (coordinates) {
+      forceMapUpdate.value = true;
+      mapCenter.value = coordinates;
+      setTimeout(() => {
+        forceMapUpdate.value = false;
+      }, 200);
+    }
+  }).catch(error => {
+    addDebugLog("error", "Failed to geocode received address", {
+      address: newAddress,
+      error: error.message
+    });
+  });
+}
+
+// 將 receiveLocationAddress 函數暴露到全局，供 Flutter 調用
+if (typeof window !== 'undefined') {
+  window.receiveLocationAddress = receiveLocationAddress;
+}
+
+// 初始化地址：從 localStorage 加載已保存的地址
+async function initializeAddresses() {
+  isLoadingLocation.value = true;
+  
+  // 先加載已保存的地址
+  loadAddresses();
+  
+  // 等待 Flutter 傳遞定位地址（如果有的話）
+  // Flutter 會在頁面加載完成後自動調用 receiveLocationAddress
+  // 這裡設置一個超時，如果 Flutter 沒有傳遞地址，就使用已保存的地址
+  setTimeout(() => {
+    if (isLoadingLocation.value) {
+      isLoadingLocation.value = false;
+      addDebugLog('log', "Location address not received from Flutter, using saved addresses");
+    }
+  }, 3000);
 }
 
 // Close dropdown when clicking outside
@@ -501,11 +396,13 @@ onUnmounted(() => {
 @import "@/styles/colors.css";
 
 .food-safety-page {
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
   background-color: var(--grayscale-50);
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow: hidden;
 }
 
 /* Action Icon Button */
@@ -539,6 +436,7 @@ onUnmounted(() => {
 /* Content */
 .content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px;
   display: flex;
@@ -710,7 +608,8 @@ onUnmounted(() => {
 /* Map Section */
 .map-section {
   width: 100%;
-  aspect-ratio: 1 / 1;
+  flex: 1;
+  min-height: 0;
   margin-bottom: 4px;
   border-radius: 12px;
   overflow: visible;
@@ -720,6 +619,8 @@ onUnmounted(() => {
 
 /* 地圖容器本身需要 overflow hidden，但外層容器需要 visible 以顯示覆蓋層 */
 .map-section :deep(.map-container) {
+  width: 100%;
+  height: 100%;
   border-radius: 12px;
   overflow: hidden;
   position: relative;
@@ -731,6 +632,7 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   margin-bottom: 4px;
+  flex-shrink: 0;
 }
 
 .action-button {
@@ -758,84 +660,6 @@ onUnmounted(() => {
 
 .action-button--active:hover {
   background-color: var(--primary-50);
-}
-
-/* News Section */
-.news-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.news-section-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--grayscale-800);
-  margin: 0;
-}
-
-.news-section-more {
-  background: none;
-  border: none;
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--primary-500);
-  cursor: pointer;
-  padding: 4px 8px;
-}
-
-.news-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.news-card {
-  background-color: var(--white);
-  border-radius: 8px;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-shadow: 0 1px 3px rgba(11, 13, 14, 0.1);
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.news-card:active {
-  background-color: var(--primary-50);
-}
-
-.news-card-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.news-card-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--grayscale-800);
-  margin: 0;
-}
-
-.news-card-date {
-  font-size: 14px;
-  color: var(--grayscale-500);
-  margin: 0;
-}
-
-.news-card-arrow {
-  font-size: 24px;
-  color: var(--grayscale-400);
-  flex-shrink: 0;
 }
 
 /* Empty State */

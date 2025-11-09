@@ -286,24 +286,64 @@ async function loadNightMarketShops(marketName) {
 
     data.forEach((shop) => {
       const evaluationResult = shop.evaluationResult || "";
+      const inspectionStatus = shop.inspectionStatus || "";
+      
+      // 優先判斷：如果有evaluationResult（金質、銀質），優先顯示evaluationResult，忽略inspectionStatus
+      // 如果沒有evaluationResult或evaluationResult不是優良/不合格，再檢查inspectionStatus
+      let displayStatus = "";
+      let isGood = false;
+      let isUnqualified = false;
+      
+      // 優先檢查evaluationResult（金質、銀質等）
+      if (evaluationResult) {
+        if (isGoodShop(evaluationResult)) {
+          // 如果有金質或銀質，優先顯示金銀，忽略inspectionStatus
+          isGood = true;
+          displayStatus = evaluationResult;
+        } else if (isUnqualifiedShop(evaluationResult)) {
+          isUnqualified = true;
+          displayStatus = evaluationResult;
+        }
+      }
+      
+      // 如果evaluationResult不是優良也不是不合格，再檢查inspectionStatus
+      if (!isGood && !isUnqualified) {
+        if (inspectionStatus) {
+          if (isUnqualifiedShop(inspectionStatus)) {
+            isUnqualified = true;
+            displayStatus = inspectionStatus;
+          } else if (isGoodShop(inspectionStatus)) {
+            isGood = true;
+            displayStatus = inspectionStatus;
+          }
+        }
+        // 如果都沒有，使用evaluationResult作為顯示狀態（可能是空字串）
+        if (!displayStatus) {
+          displayStatus = evaluationResult;
+        }
+      }
+      
       const shopItem = {
         name: shop.stallName || shop.businessName || "",
-        address: "",
-        status: evaluationResult,
+        address: shop.address || "",
+        status: displayStatus,
       };
 
       // 調試：記錄每個店家的狀態
       addDebugLog("log", "Shop evaluation result", {
         name: shopItem.name,
         evaluationResult: evaluationResult,
-        status: shopItem.status,
-        cardClass: getCardClass(evaluationResult),
-        statusClass: getStatusClass(evaluationResult),
+        inspectionStatus: inspectionStatus,
+        displayStatus: displayStatus,
+        isGood: isGood,
+        isUnqualified: isUnqualified,
+        cardClass: getCardClass(displayStatus),
+        statusClass: getStatusClass(displayStatus),
       });
 
-      if (isUnqualifiedShop(evaluationResult)) {
+      if (isUnqualified) {
         unqualified.push(shopItem);
-      } else if (isGoodShop(evaluationResult)) {
+      } else if (isGood) {
         good.push(shopItem);
       }
     });

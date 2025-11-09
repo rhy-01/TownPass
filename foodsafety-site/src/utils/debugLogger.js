@@ -34,8 +34,8 @@ export function addDebugLog(level, message, data = null) {
     consoleMethod(`[${timestamp}] ${message}`, data || '');
   }
   
-  // 更新頁面上的調試面板
-  updateDebugPanel();
+  // 不再更新頁面上的調試面板（移除debug圖標）
+  // updateDebugPanel();
 }
 
 /**
@@ -95,37 +95,6 @@ function initDebugPanel() {
   panel.appendChild(content);
   
   document.body.appendChild(panel);
-  
-  // 添加切換按鈕
-  const toggleBtn = document.createElement('button');
-  toggleBtn.id = 'debug-toggle';
-  toggleBtn.textContent = '🐛';
-  toggleBtn.style.cssText = `
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    background-color: #5AB4C5;
-    color: white;
-    border: none;
-    cursor: pointer;
-    z-index: 10001;
-    font-size: 20px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  `;
-  toggleBtn.onclick = () => {
-    const panel = document.getElementById('debug-panel');
-    if (panel) {
-      const isVisible = panel.style.display !== 'none';
-      panel.style.display = isVisible ? 'none' : 'block';
-    }
-  };
-  document.body.appendChild(toggleBtn);
 }
 
 /**
@@ -206,15 +175,15 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// 在模塊加載時初始化面板
-if (typeof document !== 'undefined') {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initDebugPanel);
-  } else {
-    // DOM 已經準備好
-    setTimeout(initDebugPanel, 100);
-  }
-}
+// 不再自動初始化調試面板（移除debug圖標）
+// if (typeof document !== 'undefined') {
+//   if (document.readyState === 'loading') {
+//     document.addEventListener('DOMContentLoaded', initDebugPanel);
+//   } else {
+//     // DOM 已經準備好
+//     setTimeout(initDebugPanel, 100);
+//   }
+// }
 
 /**
  * 導出日誌
