@@ -13,7 +13,7 @@ class OfficialServiceCardBottomRight extends OfficialServiceCard {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () async {
-        TPRoute.openUri(uri: 'http://10.0.2.2:8081/');
+        TPRoute.openUri(uri: 'https://foodsafety-web-aog3fk2k5q-de.a.run.app');
       },
       child: Container(
         height: constraint.maxWidth,

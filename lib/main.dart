@@ -1,10 +1,13 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/firebase_options.dart';
 import 'package:town_pass/gen/assets.gen.dart';
@@ -20,6 +23,12 @@ import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/service/subscription_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/tp_route.dart';
+
+// 預設參考座標：北緯 25.018 度，東經 121.535 度（如果無法獲取用戶位置時使用）
+const double _defaultReferenceLatitude = 25.018;
+const double _defaultReferenceLongitude = 121.535;
+// 通知範圍：10 公里
+const double _notificationRadiusKm = 10.0;
 
 const _transparentStatusBar = SystemUiOverlayStyle(
   statusBarColor: Colors.transparent,
@@ -89,21 +98,67 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   
   // 檢查是否有經緯度（必要條件）
   if (lat != null && lng != null && lat.isNotEmpty && lng.isNotEmpty) {
-    // 如果有經緯度，就顯示通知（無論 title 是否包含"不合格"）
-    // 因為 Python 後端已經過濾了，只有不合格的才會發送
-    if (title != null && title.isNotEmpty) {
-      print('✅ 有經緯度且 title，將顯示通知');
-      print('標題: $title');
-      print('內容: ${body ?? "無內容"}');
-      print('餐廳: $restaurantName');
-      print('經緯度: ($lat, $lng)');
+    try {
+      // 將字串轉換為數字
+      final restaurantLat = double.tryParse(lat);
+      final restaurantLng = double.tryParse(lng);
       
-      // 在背景處理器中顯示通知
-      await _showBackgroundNotification(title, body ?? '您有新的通知');
-      
-      print('通知已顯示');
-    } else {
-      print('ℹ️  有經緯度但沒有 title，只輸出日志');
+      if (restaurantLat != null && restaurantLng != null) {
+        // 嘗試獲取用戶當前位置（用於距離計算）
+        // 注意：在背景處理器中，我們直接使用 geolocator，不依賴 GetX 服務
+        Position? userPosition;
+        try {
+          userPosition = await _getUserPositionInBackground();
+        } catch (e) {
+          print('⚠️  背景處理器無法獲取用戶位置: $e');
+        }
+        
+        final referenceLat = userPosition?.latitude ?? _defaultReferenceLatitude;
+        final referenceLng = userPosition?.longitude ?? _defaultReferenceLongitude;
+        final isUsingDefaultLocation = userPosition == null;
+        
+        // 計算餐廳與用戶位置的距離
+        final distanceKm = _calculateDistance(
+          referenceLat,
+          referenceLng,
+          restaurantLat,
+          restaurantLng,
+        );
+        
+        print('📍 餐廳座標: ($restaurantLat, $restaurantLng)');
+        if (isUsingDefaultLocation) {
+          print('📍 使用預設參考座標: ($referenceLat, $referenceLng)');
+          print('ℹ️  無法獲取用戶位置，使用預設座標進行距離計算');
+        } else {
+          print('📍 用戶當前位置: ($referenceLat, $referenceLng)');
+        }
+        print('📏 距離: ${distanceKm.toStringAsFixed(2)} 公里');
+        
+        // 只在 10 公里範圍內才顯示通知
+        if (distanceKm <= _notificationRadiusKm) {
+          if (title != null && title.isNotEmpty) {
+            print('✅ 餐廳在 ${_notificationRadiusKm} 公里範圍內，顯示通知');
+            print('標題: $title');
+            print('內容: ${body ?? "無內容"}');
+            print('餐廳: $restaurantName');
+            print('經緯度: ($lat, $lng)');
+            
+            // 在背景處理器中顯示通知
+            await _showBackgroundNotification(title, body ?? '您有新的通知');
+            
+            print('通知已顯示');
+          } else {
+            print('ℹ️  餐廳在範圍內但沒有 title，只輸出日志');
+            print('完整數據: ${message.data}');
+          }
+        } else {
+          print('⚠️  餐廳距離 ${distanceKm.toStringAsFixed(2)} 公里，超出 ${_notificationRadiusKm} 公里範圍，不顯示通知');
+        }
+      } else {
+        print('⚠️  無法解析經緯度數值: lat=$lat, lng=$lng');
+      }
+    } catch (e) {
+      print('❌ 計算距離時發生錯誤: $e');
       print('完整數據: ${message.data}');
     }
   } else {
@@ -115,6 +170,94 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   }
   
   print('=== 背景訊息處理完成 ===');
+}
+
+/// 計算兩點之間的距離（使用 Haversine 公式）
+/// 返回距離（單位：公里）
+/// [lat1] 第一個點的緯度
+/// [lon1] 第一個點的經度
+/// [lat2] 第二個點的緯度
+/// [lon2] 第二個點的經度
+double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
+  const double earthRadiusKm = 6371.0; // 地球半徑（公里）
+  
+  // 將度數轉換為弧度
+  final double dLat = _degreesToRadians(lat2 - lat1);
+  final double dLon = _degreesToRadians(lon2 - lon1);
+  
+  final double a = sin(dLat / 2) * sin(dLat / 2) +
+      cos(_degreesToRadians(lat1)) *
+          cos(_degreesToRadians(lat2)) *
+          sin(dLon / 2) *
+          sin(dLon / 2);
+  
+  final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+  final double distance = earthRadiusKm * c;
+  
+  return distance;
+}
+
+/// 將度數轉換為弧度
+double _degreesToRadians(double degrees) {
+  return degrees * (pi / 180.0);
+}
+
+/// 在背景處理器中獲取用戶位置
+/// 注意：這個函數在獨立的 isolate 中運行，不能使用 GetX 服務
+Future<Position?> _getUserPositionInBackground() async {
+  try {
+    if (kIsWeb) {
+      // Web 平台：檢查權限並獲取位置
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('⚠️  Web 平台：定位權限被拒絕');
+          return null;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        print('⚠️  Web 平台：定位權限被永久拒絕');
+        return null;
+      }
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5), // 背景處理器中使用較短的超時時間
+        ),
+      );
+    } else {
+      // 移動平台：檢查定位服務和權限
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        print('⚠️  定位服務未開啟');
+        return null;
+      }
+      
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          print('⚠️  定位權限被拒絕');
+          return null;
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        print('⚠️  定位權限被永久拒絕');
+        return null;
+      }
+      
+      return await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 5),
+        ),
+      );
+    }
+  } catch (e) {
+    print('❌ 背景處理器獲取位置失敗: $e');
+    return null;
+  }
 }
 
 /// 在背景處理器中顯示通知
