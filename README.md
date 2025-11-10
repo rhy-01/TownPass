@@ -1,4 +1,4 @@
-# Food Safety Sentinel A TownPass Microservice
+# Food Safety Sentinel - A TownPass Microservice
 ## Service Overview
 
 Food Safety Sentinel is a TownPass microservice that delivers timely and personalized food safety information to citizens. It provides features such as querying inspection results for any food establishment, listing nearby locations with failed inspections, displaying night market stall grades and awards, and matching e-receipt records (載具) with businesses to proactively warn users about potential food safety risks. The service updates daily and issues push notifications when new incidents occur near a user's saved addresses or when a user has recently visited a flagged establishment.
