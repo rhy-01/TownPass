@@ -1,3 +1,15 @@
+## Project Overview
+
+Town Pass leverages open data and cloud-native services to surface timely food safety information to citizens:
+
+- ⚙️ **OpenStreetMap (OSM)** powers the in-app map experience, allowing users to visualize nearby food establishments with open mapping data.
+- 🔄 **Scheduled web crawlers** periodically collect Taipei City food safety announcements and inspection reports from public websites.
+- ☁️ **Google Cloud Storage** stores the aggregated datasets, ensuring a durable, centralized repository for map overlays and alerts.
+- 🧪 **Dockerized services on Cloud Run** host both the crawler pipelines and backend APIs, providing scalable and managed execution without server maintenance.
+- 🔔 **Firebase Cloud Messaging (FCM)** proactively pushes notifications so residents receive updates the moment new food safety incidents are detected.
+
+These components work together to deliver accurate, up-to-date insights about the city’s food safety landscape directly to mobile users.
+
 # What is Town Pass?
 
 Town Pass is an open-source project developed by the Taipei City Government. With the growth of smart cities, the demand for digitalization in city management and citizen services continues to rise. As we enter a new digital era, our goal is to involve citizens in the process, combining third-party expertise and innovation to make digital life in Taipei more convenient.
@@ -22,18 +34,16 @@ Here are some quick setup guide.
 
 1. Get the packages project needed:
 
-   ``` bash
+   ```bash
    flutter pub get
    ```
-
 2. Generate additional needed dart code for the project.
 
-   ``` bash
+   ```bash
    flutter packages pub run build_runner build
    ```
-
 3. You are all set now, Run the project from your IDE or the through the command line:
 
-   ``` bash
+   ```bash
    flutter run
    ```

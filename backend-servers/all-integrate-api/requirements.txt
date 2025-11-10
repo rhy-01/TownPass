@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+google-cloud-firestore
+pydantic
+requests
+google-auth

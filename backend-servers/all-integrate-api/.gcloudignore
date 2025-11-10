@@ -1,0 +1,75 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore.
+
+# Git files - 完全排除所有 Git 相關文件
+.git/
+.gitignore
+.gitattributes
+.gitmodules
+.gitkeep
+MERGE_HEAD
+AUTO_MERGE
+*.orig
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Test files
+test-*.sh
+*.test.py
+tests/
+test/
+*_test.py
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# 注意：.gcloudignore 不支持排除父目錄
+# 確保在正確的目錄（all-integrate-api/all-integrate-api）執行部署命令
+
+# 部署相關文件（不需要上傳）
+deploy.sh
+deploy.ps1
+*.sh
+*.ps1
+

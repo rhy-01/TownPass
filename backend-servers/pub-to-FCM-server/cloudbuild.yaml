@@ -1,0 +1,16 @@
+steps:
+  # 構建 Docker 映像檔
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/fcm-push-service:$SHORT_SHA', '-t', 'gcr.io/$PROJECT_ID/fcm-push-service:latest', '.']
+  
+  # 推送映像檔到 Container Registry (GCR)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/fcm-push-service:$SHORT_SHA']
+  
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/fcm-push-service:latest']
+
+images:
+  - 'gcr.io/$PROJECT_ID/fcm-push-service:$SHORT_SHA'
+  - 'gcr.io/$PROJECT_ID/fcm-push-service:latest'
+
