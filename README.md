@@ -1,13 +1,17 @@
 # Food Safety Sentinel A TownPass Microservice
-## Project Overview
+## Service Overview
 
-Town Pass leverages open data and cloud-native services to surface timely food safety information to citizens:
+Food Safety Sentinel is a TownPass microservice that delivers timely and personalized food safety information to citizens. It provides features such as querying inspection results for any food establishment, listing nearby locations with failed inspections, displaying night market stall grades and awards, and matching e-receipt records (載具) with businesses to proactively warn users about potential food safety risks. The service updates daily and issues push notifications when new incidents occur near a user's saved addresses or when a user has recently visited a flagged establishment.
 
-- ⚙️ **OpenStreetMap (OSM)** powers the in-app map experience, allowing users to visualize nearby food establishments with open mapping data.
-- 🔄 **Scheduled web crawlers** periodically collect Taipei City food safety announcements and inspection reports from public websites.
-- ☁️ **Google Cloud Storage** stores the aggregated datasets, ensuring a durable, centralized repository for map overlays and alerts.
-- 🧪 **Dockerized services on Cloud Run** host both the crawler pipelines and backend APIs, providing scalable and managed execution without server maintenance.
-- 🔔 **Firebase Cloud Messaging (FCM)** proactively pushes notifications so residents receive updates the moment new food safety incidents are detected.
+## How It Works
+
+The service integrates multiple open data sources and cloud-native components to provide reliable, up-to-date food safety insights:
+
+- **OpenStreetMap (OSM)** powers geospatial visualization for food establishments and night markets within the TownPass app.
+- **Scheduled web crawlers** regularly gather food safety announcements and inspection reports published by Taipei City.
+- **Google Cloud Storage** acts as the central repository for processed datasets, map overlays, and alert metadata.
+- **Dockerized microservices on Cloud Run** handle crawler execution and backend APIs at scale, without server management overhead.
+- **Firebase Cloud Messaging (FCM)** delivers proactive push alerts, notifying citizens instantly when new food safety issues are detected.
 
 These components work together to deliver accurate, up-to-date insights about the city’s food safety landscape directly to mobile users.
 
